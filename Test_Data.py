@@ -181,7 +181,7 @@ for loop in range(10):
     #del model
     #model = load_model('my_model.h5')
     #model.fit(trainX, trainY, nb_epoch=100, batch_size=1, verbose=2)
-    model.fit(trainX, trainY, nb_epoch=100, batch_size=1, verbose=0)
+    model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=0)
 
 
     # make predictions
