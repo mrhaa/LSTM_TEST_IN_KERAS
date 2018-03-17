@@ -1,4 +1,4 @@
-SELECT a.cd AS 아이템코드, a.nm AS 아이템명, b.element_nm AS 아이템타입, c.element_nm AS 수치단위, d.element_nm AS 기간단위, e.element_nm AS 출처, f.element_nm AS 통화
+SELECT a.cd AS 아이템코드, a.nm AS 아이템명, b.element_nm AS 아이템타입, c.element_nm AS 수치단위, d.element_nm AS 기간단위, e.element_nm AS 출처, a.ticker AS 티커, g.element_nm AS 그룹, f.element_nm AS 통화
   FROM item AS a
  LEFT JOIN code_element AS f
     ON a.currency = f.element_cd
@@ -7,6 +7,7 @@ SELECT a.cd AS 아이템코드, a.nm AS 아이템명, b.element_nm AS 아이템�
      , code_element AS c
      , code_element AS d
      , code_element AS e
+     , code_element AS g     
  WHERE a.value_type = b.element_cd
    AND b.group_cd = 10001
    AND a.value_unit = c.element_cd
@@ -15,6 +16,10 @@ SELECT a.cd AS 아이템코드, a.nm AS 아이템명, b.element_nm AS 아이템�
    AND d.group_cd = 10003
    AND a.source = e.element_cd
    AND e.group_cd = 10005
+   AND a.group = g.element_cd
+   AND g.group_cd = 10006
+
+
   
 
    
