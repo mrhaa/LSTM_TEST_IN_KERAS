@@ -78,15 +78,51 @@ class WrapDB(object):
         # 수행
         self.cursor.execute(sql, sql_arg)
 
-        # 내역 출력
-        data = []
-        for r in self.cursor.fetchall():
-            data.append([r[0], r[1], r[2]])
-        #print(data)
+        data = self.cursor.fetchall()
 
-        dfData = pd.DataFrame(data)
+        return pd.DataFrame(data)
 
-        return dfData
+    def get_data_info(self):
+        sql = "SELECT a.cd, a.nm, count(*), min(date), max(date)" \
+              "  FROM item as a" \
+              "  LEFT JOIN value AS b" \
+              "    ON a.cd = b.item_cd" \
+              " GROUP BY a.cd, a.nm" \
+              " HAVING COUNT(*) > 1"
+        sql_arg = None
+
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        data = self.cursor.fetchall()
+
+        return pd.DataFrame(data)
+
+    def get_datas(self, data_list, start_date = None, end_date = None):
+
+        sql = "SELECT a.cd, a.nm, b.date, b.value"\
+              "  FROM item AS a, value AS b"\
+              " WHERE a.cd = b.item_cd"\
+              "   AND a.cd in (%s)" \
+              "   AND b.date >= '%s'" \
+              "   AND b.date <= '%s'"
+        sql_arg = None
+
+        target_list = None
+        for idx, ele in enumerate(data_list):
+            if idx == 0:
+                target_list = str(ele)
+            else:
+                target_list += ", " + str(ele)
+
+        sql = sql % (target_list, start_date, end_date)
+        #print (sql)
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        data = self.cursor.fetchall()
+
+        return pd.DataFrame(data)
 
     def insert(self):
         sql = "INSERT INTO member (name, addr) VALUES (%s, %s) ON DUPLICATE KEY UPDATE name=%s, addr=%s"
