@@ -7,6 +7,12 @@ import xlsxwriter
 import openpyxl
 from xlutils.copy import copy as xl_copy
 
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import Test_Figure
+import numpy as np
+
+
 
 # Wrap운용팀 DB Connect
 db = WrapDB()
@@ -50,10 +56,46 @@ datas["날짜T"] = datas["날짜"].apply(lambda x: pd.to_datetime(str(x), format
 monthly_samles = datas.resample('M', on="날짜T", convention="end")
 monthly_datas = datas.loc[datas["날짜T"].isin(list(monthly_samles.indices))]
 #print (monthly_datas)
-for idx, values in enumerate(monthly_datas.values):
-    print (idx, values)
+#for idx, values in enumerate(monthly_datas.values):
+#    print (idx, values)
+#print (type(monthly_datas))
 
+# pivot 이용해 PCA 분석을 위한 구조로 변경
+pivoted_monthly_datas = monthly_datas.pivot(index='날짜', columns='아이템명', values='값')
+# Test
+#pivoted_monthly_datas = pivoted_monthly_datas[['BOJ자산','FED자산']]
+#pivoted_monthly_datas = pd.DataFrame(data = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]]), columns = ['BOJ자산','FED자산'])
+
+# 정규화
+pivoted_monthly_datas = pd.DataFrame(StandardScaler().fit_transform(pivoted_monthly_datas))
+#pivoted_monthly_datas_T = pivoted_monthly_datas.transpose()
+#print (list(pivoted_monthly_datas))
+#print (pivoted_monthly_datas)
+
+pca = PCA(n_components=pivoted_monthly_datas.shape[1])
+#pca = PCA(n_components=2)
+#principalComponents = pca.fit_transform(pivoted_monthly_datas)
+pca.fit(pivoted_monthly_datas)
+principalComponents = pca.transform(pivoted_monthly_datas)
+#
+#print (principalDf)
+
+if 0:
+    principalDf = pd.DataFrame(data=principalComponents, columns=['principal component 1', 'principal component 2'])
+
+    color = 'r'
+    Test_Figure.Figure_2D_NoClass(pivoted_monthly_datas, 'Original', ['BOJ자산','FED자산'], color)
+    Test_Figure.Figure_2D_NoClass(principalDf, '2 Component PCA', ['principal component 1', 'principal component 2'], color)
 
 
 # Wrap운용팀 DB Disconnect
 db.disconnect()
+
+# Create a Pandas Excel writer using Openpyxl as the engine.
+writer = pd.ExcelWriter('test.xlsx', engine='openpyxl')
+# 주의: 파일이 암호화 걸리면 workbook load시 에러 발생
+writer.book = openpyxl.load_workbook('test.xlsx')
+# Pandas의 DataFrame 클래스를 그대로 이용해서 엑셀 생성 가능
+pivoted_monthly_datas.to_excel(writer, sheet_name='sheet1')
+principalDf.to_excel(writer, sheet_name='sheet2')
+writer.save()

@@ -8,7 +8,7 @@ import pandas as pd
 config = {
     "host": "127.0.0.1",
     "port": 3306,
-    "database": "WrapDB",
+    "database": "WrapDB_1",
     "user": "root",
     "password": "maria"
 
@@ -135,3 +135,15 @@ class WrapDB(object):
         self.conn.commit();
 
         return True
+
+    def insert_value(self, item_cd, date, value):
+        sql = "INSERT INTO value (date, item_cd, value) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE value=%s"
+        sql_arg = (date, item_cd, value, value)
+
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        # DB 반영
+        self.conn.commit();
+
+        return 1

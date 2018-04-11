@@ -21,6 +21,51 @@ db.disconnect()
 
 
 if 1:
+    import copy
+    from openpyxl import load_workbook
+    wb = load_workbook(filename='통합지표_류상진_.xlsx', read_only=False, data_only=False)
+    ws = wb['데이터_작업']
+
+    all_columns = ws.columns
+
+    dates = None
+    values = None
+    for idx, column in enumerate(all_columns):
+        #print(idx)
+        if idx % 2 == 0:
+            dates = copy.copy(column)
+            #print(type(dates), dir(dates))
+            #print (dates[1], len(dates))
+        else:
+            values = copy.copy(column)
+            #print(type(values), dir(values))
+            #print(values[1], len(values))
+
+            group = None
+            name = None
+            ticker = None
+            for idx in range(len(dates)):
+                if idx == 0:
+                    group = values[idx].value
+                    print (group)
+                elif idx == 1:
+                    name = values[idx].value
+                    print (name)
+                elif idx == 2:
+                    ticker = values[idx].value
+                    print (ticker)
+                elif dates[idx].value == None:
+                    pass
+                else:
+                    print(str(dates[idx].value)[:10], "\t", values[idx].value, type(values[idx].value))
+
+
+                if idx > 4:
+                    break
+
+
+
+if 0:
     # Create a Pandas Excel writer using Openpyxl as the engine.
     writer = pd.ExcelWriter('test.xlsx', engine='openpyxl')
     # 주의: 파일이 암호화 걸리면 workbook load시 에러 발생

@@ -18,8 +18,8 @@ config = {
     "port": 3306
 }
 
-features = ["MSCI World", "MSCI EM"]
-target = ["MSCI ACWI"]
+features = ['BOJ자산','FED자산']
+target = ["FED자산"]
 
 try:
     # DB 연결객체

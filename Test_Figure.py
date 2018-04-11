@@ -22,6 +22,20 @@ def Figure_2D(data_frame, title='2 component', input_name = None, output_name = 
     ax.grid()
 
 
+def Figure_2D_NoClass(data_frame, title='2 component', axis_name = None, color = None):
+
+    if data_frame is None:
+        return False
+
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.set_xlabel(axis_name[0], fontsize=15)
+    ax.set_ylabel(axis_name[1], fontsize=15)
+    ax.set_title(title, fontsize=20)
+    for data in data_frame.values:
+        ax.scatter(data[0], data[1], c=color, s=50)
+    ax.grid()
+
 def Figure_3D(data_frame, title='3 component', input_name = None, output_name = None, target_name = None, target_color = None):
 
     if data_frame is None:
