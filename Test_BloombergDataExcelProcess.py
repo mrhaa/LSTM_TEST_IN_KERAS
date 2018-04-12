@@ -8,10 +8,6 @@ import openpyxl
 from xlutils.copy import copy as xl_copy
 
 
-# Wrap운용팀 DB Connect
-db = WrapDB()
-db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="maria")
-
 item_dic = {"S&P500":1
 ,"STOXX50":2
 ,"FTSE100":3
@@ -421,6 +417,11 @@ start_time = end_time
 all_columns = ws.columns
 
 
+# Wrap운용팀 DB Connect
+db = WrapDB()
+db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="maria")
+
+# 엑셀 load 된 데이터 처리 
 dates = None
 values = None
 for idx, column in enumerate(all_columns):

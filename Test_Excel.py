@@ -20,7 +20,7 @@ data = db.select()
 db.disconnect()
 
 
-if 1:
+if 0:
     import copy
     from openpyxl import load_workbook
     wb = load_workbook(filename='통합지표_류상진_.xlsx', read_only=False, data_only=False)

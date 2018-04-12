@@ -104,8 +104,8 @@ class WrapDB(object):
               "  FROM item AS a, value AS b"\
               " WHERE a.cd = b.item_cd"\
               "   AND a.cd in (%s)" \
-              "   AND b.date >= '%s'" \
-              "   AND b.date <= '%s'"
+#              "   AND b.date >= '%s'" \
+#              "   AND b.date <= '%s'"
         sql_arg = None
 
         target_list = None
@@ -115,7 +115,8 @@ class WrapDB(object):
             else:
                 target_list += ", " + str(ele)
 
-        sql = sql % (target_list, start_date, end_date)
+#        sql = sql % (target_list, start_date, end_date)
+        sql = sql % (target_list)
         #print (sql)
         # 수행
         self.cursor.execute(sql, sql_arg)
