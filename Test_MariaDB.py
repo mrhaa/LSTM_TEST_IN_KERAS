@@ -100,12 +100,19 @@ class WrapDB(object):
 
     def get_datas(self, data_list, start_date = None, end_date = None):
 
-        sql = "SELECT a.cd, a.nm, b.date, b.value"\
-              "  FROM item AS a, value AS b"\
-              " WHERE a.cd = b.item_cd"\
-              "   AND a.cd in (%s)" \
-#              "   AND b.date >= '%s'" \
-#              "   AND b.date <= '%s'"
+        if start_date == None and end_date == None:
+            sql = "SELECT a.cd, a.nm, b.date, b.value"\
+                  "  FROM item AS a, value AS b"\
+                  " WHERE a.cd = b.item_cd"\
+                  "   AND a.cd in (%s)"
+        else:
+            sql = "SELECT a.cd, a.nm, b.date, b.value" \
+                  "  FROM item AS a, value AS b" \
+                  " WHERE a.cd = b.item_cd" \
+                  "   AND a.cd in (%s)" \
+                  "   AND b.date >= '%s'" \
+                  "   AND b.date <= '%s'"
+
         sql_arg = None
 
         target_list = None
@@ -115,8 +122,10 @@ class WrapDB(object):
             else:
                 target_list += ", " + str(ele)
 
-#        sql = sql % (target_list, start_date, end_date)
-        sql = sql % (target_list)
+        if start_date == None and end_date == None:
+            sql = sql % (target_list)
+        else:
+            sql = sql % (target_list, start_date, end_date)
         #print (sql)
         # 수행
         self.cursor.execute(sql, sql_arg)

@@ -383,7 +383,16 @@ item_dic = {"S&P500":1
 ,"유로존 종합 Markit PMI":373
 ,"러시아 수출 YoY":374
 ,"러시아 원유 수출(천톤)":375
-,"러시아 원유 수출(USD백만) YTD":376}
+,"러시아 원유 수출(USD백만) YTD":376
+,"미국 OECD 경기선행지수":377
+,"유럽 OECD 경기선행지수":378
+,"일본 OECD 경기선행지수":379
+,"중국 OECD 경기선행지수":380
+,"한국 OECD 경기선행지수":381
+,"브라질 OECD 경기선행지수":382
+,"러시아 OECD 경기선행지수":383
+,"인도 OECD 경기선행지수":384
+}
 
 group_dic = {"경제_한국":"10005"
 ,"경제_러시아":"10010"
@@ -448,6 +457,8 @@ for idx, column in enumerate(all_columns):
 
             # 그룹명
             if idx == 0:
+                continue
+                # 재사용을 위해서는 엑셀에 추가 작업 필요
                 group_cd = group_dic[values[idx].value]
                 #print (values[idx].value, group_cd)
 
