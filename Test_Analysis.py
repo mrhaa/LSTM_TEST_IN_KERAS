@@ -104,6 +104,10 @@ for column_nm in pivoted_sampled_datas.columns:
                     #print("KeyError", str(ref_row_nm))
                     ref_row_nm = str(datetime.strptime(ref_row_nm, '%Y-%m-%d').date() - timedelta(days=1))
 
+        # 이후 연산작업을 위해 decimal을 float 형태로 변경
+        if pivoted_sampled_datas[column_nm][row_nm] != None:
+            pivoted_sampled_datas[column_nm][row_nm] = float(pivoted_sampled_datas[column_nm][row_nm])
+
 
 # 유효하지 않은 기간 drop
 drop_basis_from = datetime.strptime('2007-01-31', '%Y-%m-%d').date()
@@ -129,7 +133,7 @@ for column_nm in pivoted_sampled_datas_cp.columns:
         #print('유효하지 않은 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
         pivoted_sampled_datas.drop(columns=column_nm, inplace=True)
     elif total_null_cnt:
-        print('유효한 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
+        #print('유효한 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
         for idx, row_nm in enumerate(pivoted_sampled_datas.index):
             if pivoted_sampled_datas[column_nm][row_nm] == None:
                 if idx == 0:
@@ -138,32 +142,109 @@ for column_nm in pivoted_sampled_datas_cp.columns:
                     pivoted_sampled_datas[column_nm][idx] = pivoted_sampled_datas[column_nm][idx-1]
 
 
-window_size = 5
-pivoted_sampled_datas_mean = pivoted_sampled_datas.rolling(window=window_size,center=False).mean()
-pivoted_sampled_datas_std = pivoted_sampled_datas.rolling(window=window_size,center=False).std()
-for loop_cnt in range(window_size):
-    pivoted_sampled_datas.drop(axis=0, inplace=True)
-    pivoted_sampled_datas_mean(axis=0, inplace=True)
-    pivoted_sampled_datas_std(axis=0, inplace=True)
-#pivoted_sampled_datas_zscore = (pivoted_sampled_datas - pivoted_sampled_datas_mean)
+# Batch 시작
+window_size_from = 5
+window_size_to = 24
 
-if 1:
-    file_nm = 'test.xlsx'
-    # 만약 해당 파일이 존재하지 않는 경우 생성
-    workbook = xlsxwriter.Workbook(file_nm)
-    workbook.close()
+pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
+for window_size in range(window_size_from, window_size_to):
 
-    # Create a Pandas Excel writer using Openpyxl as the engine.
-    writer = pd.ExcelWriter(file_nm, engine='openpyxl')
-    # 주의: 파일이 암호화 걸리면 workbook load시 에러 발생
-    writer.book = openpyxl.load_workbook(file_nm)
-    # Pandas의 DataFrame 클래스를 그대로 이용해서 엑셀 생성 가능
-    pivoted_sampled_datas.to_excel(writer, sheet_name='pivoted_sampled_datas')
-    pivoted_sampled_datas_mean.to_excel(writer, sheet_name='pivoted_sampled_datas_maen')
-    pivoted_sampled_datas_std.to_excel(writer, sheet_name='pivoted_sampled_datas_std')
-    #pivoted_sampled_datas_zscore.to_excel(writer, sheet_name='pivoted_sampled_datas_zscore')
-    #pivoted_reference_datas.to_excel(writer, sheet_name='pivoted_reference_datas')
-    writer.save()
+    # 테스트 초기 데이터 리셋
+    pivoted_sampled_datas = copy.deepcopy(pivoted_sampled_datas_last_pure_version)
+
+    pivoted_sampled_datas_mean = pivoted_sampled_datas.rolling(window=window_size, center=False).mean()
+    pivoted_sampled_datas_std = pivoted_sampled_datas.rolling(window=window_size, center=False).std()
+    pivoted_sampled_datas_cp = copy.deepcopy(pivoted_sampled_datas)
+    for idx, row_nm in enumerate(pivoted_sampled_datas_cp.index):
+        
+        # 평균 및 표준편차 데이터가 생성되지 않는 구간 삭제
+        drop_point = window_size - 1
+        if idx < drop_point:
+            pivoted_sampled_datas.drop(index=row_nm, inplace=True)
+            pivoted_sampled_datas_mean.drop(index=row_nm, inplace=True)
+            pivoted_sampled_datas_std.drop(index=row_nm, inplace=True)
+        else:
+            break
+
+
+    # Z-Score 계산
+    # 데이터의 변화가 없어 표준편차가 0(ZeroDivisionError)인 경우 때문에 DataFrame을 이용한 연산처리 불가
+    pivoted_sampled_datas_zscore = copy.deepcopy(pivoted_sampled_datas)
+    for column_nm in pivoted_sampled_datas_zscore.columns:
+        for row_nm in pivoted_sampled_datas_zscore.index:
+            try:
+                pivoted_sampled_datas_zscore[column_nm][row_nm] = (pivoted_sampled_datas[column_nm][row_nm] - pivoted_sampled_datas_mean[column_nm][row_nm]) / pivoted_sampled_datas_std[column_nm][row_nm]
+            except ZeroDivisionError:
+                pivoted_sampled_datas_zscore[column_nm][row_nm] = 0.0
+
+
+
+    # 시뮬레이션 로직
+    if 1:
+        profit_calc_start_time = datetime.strptime('2012-01-01', '%Y-%m-%d').date()
+        min_max_check_term = 8
+        weight_check_term = 4
+        target_index_nm_list = ["MSCI ACWI","MSCI World","MSCI EM","KOSPI","S&P500","Nikkei225","상해종합"]
+        
+        model_cumulated_profit = {}
+        bm_cumulated_profit = {}
+        for index_nm in target_index_nm_list:
+            # 누적 수익률 저장 공간
+            model_cumulated_profit[index_nm] = {}
+            bm_cumulated_profit[index_nm] = {}
+
+            for column_nm in pivoted_sampled_datas_zscore.columns:
+
+                if column_nm != index_nm:
+                    # 누적 수익률 초기화
+                    model_cumulated_profit[index_nm][column_nm] = 0.0
+                    bm_cumulated_profit[index_nm][column_nm] = 0.0
+
+                    # 주식 Buy, Sell 포지션 판단
+                    new_point = min_max_check_term - 1
+                    average_array = [0] * min_max_check_term
+                    for idx, row_nm in enumerate(pivoted_sampled_datas_zscore.index):
+                        try:
+                            # 과거 moving average 생성 및 시프트
+                            # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
+                            if idx >= new_point:
+                                average_array[:new_point] = average_array[-new_point:]
+                                average_array[new_point] = (pivoted_sampled_datas_zscore[column_nm][idx - new_point:idx + 1].min() + pivoted_sampled_datas_zscore[column_nm][idx - new_point:idx + 1].max()) / 2
+
+                                # 수익률 계산 시작
+                                # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
+                                if datetime.strptime(row_nm, '%Y-%m-%d').date() >= profit_calc_start_time and idx - new_point >= weight_check_term:
+                                    if average_array[new_point] == max(average_array):
+                                        model_cumulated_profit[index_nm][column_nm] += pivoted_sampled_datas[index_nm][idx+1] / pivoted_sampled_datas[index_nm][idx] - 1
+                                    bm_cumulated_profit[index_nm][column_nm] += pivoted_sampled_datas[index_nm][idx + 1] / pivoted_sampled_datas[index_nm][idx] - 1
+                                    #print(index_nm, '\t', column_nm, '\t', row_nm, '\t', model_cumulated_profit, '\t', bm_cumulated_profit)
+                        except IndexError:
+                            #print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
+                            pass
+
+                    # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
+                    if model_cumulated_profit[index_nm][column_nm] > bm_cumulated_profit[index_nm][column_nm]:
+                        print (window_size, '\t', index_nm, '\t', column_nm, '\t', model_cumulated_profit[index_nm][column_nm], '\t', bm_cumulated_profit[index_nm][column_nm], '\t', model_cumulated_profit[index_nm][column_nm]/bm_cumulated_profit[index_nm][column_nm])
+
+
+    # 데이터 저장
+    if 0:
+        file_nm = 'test.xlsx'
+        # 만약 해당 파일이 존재하지 않는 경우 생성
+        workbook = xlsxwriter.Workbook(file_nm)
+        workbook.close()
+
+        # Create a Pandas Excel writer using Openpyxl as the engine.
+        writer = pd.ExcelWriter(file_nm, engine='openpyxl')
+        # 주의: 파일이 암호화 걸리면 workbook load시 에러 발생
+        writer.book = openpyxl.load_workbook(file_nm)
+        # Pandas의 DataFrame 클래스를 그대로 이용해서 엑셀 생성 가능
+        pivoted_sampled_datas.to_excel(writer, sheet_name='pivoted_sampled_datas')
+        pivoted_sampled_datas_mean.to_excel(writer, sheet_name='pivoted_sampled_datas_maen')
+        pivoted_sampled_datas_std.to_excel(writer, sheet_name='pivoted_sampled_datas_std')
+        pivoted_sampled_datas_zscore.to_excel(writer, sheet_name='pivoted_sampled_datas_zscore')
+        #pivoted_reference_datas.to_excel(writer, sheet_name='pivoted_reference_datas')
+        writer.save()
 
 
 
