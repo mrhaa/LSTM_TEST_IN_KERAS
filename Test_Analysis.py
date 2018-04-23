@@ -3,13 +3,9 @@
 import win32com.client
 from Test_MariaDB import WrapDB
 import pandas as pd
-import xlsxwriter
-import openpyxl
-import pickle
 import copy
 from datetime import datetime
 from datetime import timedelta
-from xlutils.copy import copy as xl_copy
 import multiprocessing as mp
 import time
 
@@ -19,12 +15,11 @@ import Test_Figure
 import Wrap_Util
 from Wrap_Folione import Folione
 import Wrap_Folione as wf
-import numpy as np
 
 
-use_datas_pickle = False
-use_window_size_pickle = False
-use_factor_selection_pickle = False
+use_datas_pickle = True
+use_window_size_pickle = True
+use_factor_selection_pickle = True
 use_parallel_process = True
 #do_simulation = True
 do_pca = False
@@ -190,6 +185,7 @@ if __name__ == '__main__':
         else:
             folione.MakeZScore()
             folione.SelectFactor()
+            folione.SimulateSignal()
 
 
     # Test

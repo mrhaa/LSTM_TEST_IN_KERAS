@@ -2,7 +2,7 @@
 
 import copy
 from datetime import datetime
-from datetime import timedelta
+import operator
 
 import Wrap_Util
 
@@ -20,11 +20,13 @@ class Folione (object):
         self.std_data = None
         self.zscore_data = None
 
-        self.model_cumulated_profit = {}
-        self.bm_cumulated_profit = {}
+        self.model_accumulated_profits = {}
+        self.bm_accumulated_profits = {}
+
+        self.model_signals = {}
 
         self.window_size = copy.deepcopy(window_size)
-        self.profit_calc_start_date = copy.deepcopy(profit_calc_start_date)
+        self.profit_calc_start_date = datetime.strptime(profit_calc_start_date, '%Y-%m-%d').date()
         self.target_index_nm_list = copy.deepcopy(target_index_nm_list)
         self.min_max_check_term = copy.deepcopy(min_max_check_term)
         self.weight_check_term = copy.deepcopy(weight_check_term)
@@ -38,6 +40,7 @@ class Folione (object):
 
         self.MakeZScore()
         self.SelectFactor()
+        self.SimulateSignal()
 
 
     def MakeZScore(self):
@@ -68,7 +71,6 @@ class Folione (object):
                         self.zscore_data[column_nm][row_nm] = 0.0
 
             Wrap_Util.SavePickleFile(file='pivoted_sampled_datas_zscore_window_size_%s.pickle' % (self.window_size), obj=self.zscore_data)
-
         else:
             self.zscore_data = Wrap_Util.ReadPickleFile(file='pivoted_sampled_datas_zscore_window_size_%s.pickle' % (self.window_size))
 
@@ -77,21 +79,23 @@ class Folione (object):
             Wrap_Util.SaveExcelFiles(file='save_datas_excel_window_size_%s.xlsx' % (self.window_size), obj_dict={'raw_data': self.raw_data, 'mean_data': self.mean_data, 'std_data': self.std_data, 'zscore_data': self.zscore_data})
 
 
+        return True
+
+
     def SelectFactor(self):
 
         if self.use_factor_selection_pickle == False:
-            profit_calc_start_time = datetime.strptime(self.profit_calc_start_date, '%Y-%m-%d').date()
 
             for index_nm in self.target_index_nm_list:
                 # 누적 수익률 저장 공간
-                self.model_cumulated_profit[index_nm] = {}
-                self.bm_cumulated_profit[index_nm] = {}
+                self.model_accumulated_profits[index_nm] = {}
+                self.bm_accumulated_profits[index_nm] = {}
 
                 for column_nm in self.zscore_data.columns:
                     if column_nm != index_nm:
                         # 누적 수익률 초기화
-                        self.model_cumulated_profit[index_nm][column_nm] = 0.0
-                        self.bm_cumulated_profit[index_nm][column_nm] = 0.0
+                        self.model_accumulated_profits[index_nm][column_nm] = 0.0
+                        self.bm_accumulated_profits[index_nm][column_nm] = 0.0
 
                         # 주식 Buy, Sell 포지션 판단
                         new_point = self.min_max_check_term - 1
@@ -106,28 +110,100 @@ class Folione (object):
 
                                     # 수익률 계산 시작
                                     # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                    if datetime.strptime(row_nm,'%Y-%m-%d').date() >= profit_calc_start_time and idx - new_point >= self.weight_check_term:
+                                    if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - new_point >= self.weight_check_term:
                                         # 조건 만족으로 BUY 포지션
                                         if average_array[new_point] == max(average_array):
-                                            self.model_cumulated_profit[index_nm][column_nm] += self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx] - 1
-                                        self.bm_cumulated_profit[index_nm][column_nm] += self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx] - 1
-                                        # print(index_nm, '\t', column_nm, '\t', row_nm, '\t', model_cumulated_profit, '\t', bm_cumulated_profit)
+                                            self.model_accumulated_profits[index_nm][column_nm] += self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx] - 1
+                                        self.bm_accumulated_profits[index_nm][column_nm] += self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx] - 1
+                                        # print(index_nm, '\t', column_nm, '\t', row_nm, '\t', model_accumulated_profits, '\t', bm_accumulated_profits)
                             except IndexError:
                                 # print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
                                 pass
 
                         # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
-                        if self.model_cumulated_profit[index_nm][column_nm] > self.bm_cumulated_profit[index_nm][column_nm]:
+                        if self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
                             print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
-                                  self.model_cumulated_profit[index_nm][column_nm], '\t',
-                                  self.bm_cumulated_profit[index_nm][column_nm], '\t',
-                                  self.model_cumulated_profit[index_nm][column_nm] / self.bm_cumulated_profit[index_nm][column_nm] - 1)
+                                  self.model_accumulated_profits[index_nm][column_nm], '\t',
+                                  self.bm_accumulated_profits[index_nm][column_nm], '\t',
+                                  self.model_accumulated_profits[index_nm][column_nm] / self.bm_accumulated_profits[index_nm][column_nm] - 1)
 
-            Wrap_Util.SavePickleFile(file='model_cumulated_profit_window_size_%s.pickle' % (self.window_size), obj=self.model_cumulated_profit)
-            Wrap_Util.SavePickleFile(file='bm_cumulated_profit_window_size_%s.pickle' % (self.window_size), obj=self.bm_cumulated_profit)
+            Wrap_Util.SavePickleFile(file='model_accumulated_profits_window_size_%s.pickle' % (self.window_size), obj=self.model_accumulated_profits)
+            Wrap_Util.SavePickleFile(file='bm_accumulated_profits_window_size_%s.pickle' % (self.window_size), obj=self.bm_accumulated_profits)
 
         else:
-            self.model_cumulated_profit = Wrap_Util.ReadPickleFile(file='model_cumulated_profit_window_size_%s.pickle' % (self.window_size))
-            self.bm_cumulated_profit = Wrap_Util.ReadPickleFile(file='bm_cumulated_profit_window_size_%s.pickle' % (self.window_size))
+            self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='model_accumulated_profits_window_size_%s.pickle' % (self.window_size))
+            self.bm_accumulated_profits = Wrap_Util.ReadPickleFile(file='bm_accumulated_profits_window_size_%s.pickle' % (self.window_size))
+
+        return True
 
 
+    def SimulateSignal(self):
+
+        # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
+        max_simulate_factor_num = 10
+        for index_nm in self.target_index_nm_list:
+
+            # 1단계. 예측 index별로 container 생성
+            self.model_signals[index_nm] = {}
+
+            model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
+
+            signal_factors_nm = ""
+            simulate_factor_list = []
+            for profitable_factor in model_profitable_factors_sorted:
+                
+                # 최대 factor 갯수는 10개까지 테스트 & BM보다 좋은 수익률을 내는 factor
+                if len(simulate_factor_list) <= max_simulate_factor_num and self.model_accumulated_profits[index_nm][profitable_factor] > self.bm_accumulated_profits[index_nm][profitable_factor]:
+                    if len(simulate_factor_list):
+                        signal_factors_nm = signal_factors_nm + " & " + profitable_factor
+                    else:
+                        signal_factors_nm = profitable_factor
+                    simulate_factor_list.append(profitable_factor)
+
+                    # 2단계. 예측 index & factor combination별로 container 생성
+                    self.model_signals[index_nm][signal_factors_nm] = {}
+                else:
+                    break
+
+
+                # 모델을 이용한 누적수익률
+                accumulated_model_profit = 0.0
+                accumulated_bm_profit = 0.0
+
+                new_point = self.min_max_check_term - 1
+                average_array = [0] * self.min_max_check_term
+                for idx, row_nm in enumerate(self.zscore_data.index):
+                    try:
+                        # 과거 moving average 생성 및 시프트
+                        # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
+                        if idx >= new_point:
+                            average_array[:new_point] = average_array[-new_point:]
+
+                            tmp_array = [0] * self.min_max_check_term
+                            # 다수 factor를 이용해 모델 예측하는 경우 factor들 min, max 값을 더한 후 평균
+                            for factor in simulate_factor_list:
+                                tmp_array += self.zscore_data[factor][idx - new_point:idx + 1]
+                            average_array[new_point] = ((min(tmp_array) + max(tmp_array)) / 2) / len(simulate_factor_list)
+
+                            # 수익률 계산 시작
+                            # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
+                            if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date and idx - new_point >= self.weight_check_term:
+
+                                # 조건 만족으로 BUY 포지션
+                                if average_array[new_point] == max(average_array):
+                                    accumulated_model_profit += self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx] - 1
+
+                                    # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
+                                    self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
+                                else:
+                                    self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
+                                accumulated_bm_profit += self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx] - 1
+
+                    except IndexError:
+                        # print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
+                        pass
+
+                # 유효 factor들의 combination을 이용하여
+                print(self.window_size, '\t', index_nm, '\t', signal_factors_nm, '\t', accumulated_model_profit, '\t', accumulated_bm_profit)
+
+        return True
