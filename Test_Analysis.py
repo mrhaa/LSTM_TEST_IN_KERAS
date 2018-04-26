@@ -13,18 +13,32 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import Test_Figure
 import Wrap_Util
+from Wrap_Folione import Preprocess
 from Wrap_Folione import Folione
 import Wrap_Folione as wf
 
-
+# 준비단계 데이터 생성
 use_datas_pickle = True
 use_window_size_pickle = True
 use_factor_selection_pickle = True
+use_correlation_pickle = True
+
+# 병렬처리 사용여부
 use_parallel_process = True
-#do_simulation = True
-do_pca = False
-do_figure = False
+
+# Folione 작업
+do_simulation = True
+make_simulate_signal = False
+
+# Debug 데이터 생성 여부
 save_datas_excel = False
+save_correlations_txt = False
+
+# 데이터 분석
+do_pca = False
+
+# 그래프 생성
+do_figure = False
 
 
 if __name__ == '__main__':
@@ -34,158 +48,69 @@ if __name__ == '__main__':
         db = WrapDB()
         db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="maria")
 
+        # 데이터 전처리 instance 생성
+        preprocess = Preprocess()
+
         # 데이터 Info Read
         data_info = db.get_data_info()
-        data_info.columns = ["아이템코드", "아이템명", "개수", "시작일", "마지막일"]
+        preprocess.SetDataInfo(data_info=data_info, data_info_columns=["아이템코드", "아이템명", "개수", "시작일", "마지막일"])
 
-        # 모든 Factor 데이터가 존재하는 기간 설정
-        date_range = {}
-        for ele in data_info:
-            if ele in ("시작일", "마지막일"):
-                if ele == "시작일":
-                    date_range[ele] = "1111-11-11"
-                elif ele == "마지막일":
-                    date_range[ele] = "9999-99-99"
-                else:
-                    continue
-
-                for idx in range(0, len(data_info[ele])):
-                    if data_info[ele][idx]:
-                        if ele == "시작일" and int(date_range[ele].replace("-", "")) < int(data_info[ele][idx].replace("-", "")):
-                            date_range[ele] = data_info[ele][idx]
-                        if ele == "마지막일" and int(date_range[ele].replace("-", "")) > int(data_info[ele][idx].replace("-", "")):
-                            date_range[ele] = data_info[ele][idx]
-
+        # Factor 별 데이터가 존재하는 기간 설정
+        preprocess.MakeDateRange(start_date="시작일", last_date="마지막일")
 
         # 유효기간 내 데이터 Read
-        data_list = list(data_info["아이템코드"])
-        start_date = date_range["시작일"]
-        end_date = date_range["마지막일"]
-        datas = db.get_datas(data_list, start_date=None, end_date=None)
-        datas.columns = ["아이템코드", "아이템명", "날짜", "값"]
+        data_list, start_date, end_date = preprocess.GetDataList(item_cd="아이템코드", start_date="시작일", last_date="마지막일")
+        datas = db.get_datas(data_list=data_list, start_date=None, end_date=None)
+        preprocess.SetDatas(datas=datas, datas_columns=["아이템코드", "아이템명", "날짜", "값"])
 
+        # DataFrame 형태의 Sampled Data 생성
+        # 'B': business daily, 'D': calendar daily, 'W': weekly, 'M': monthly
+        preprocess.MakeSampledDatas(sampling_type='M', index='날짜', columns='아이템명', values='값')
 
-        # 월말 데이터만 선택
-        datas["날짜T"] = datas["날짜"].apply(lambda x: pd.to_datetime(str(x), format="%Y-%m-%d"))
-        #datas.set_index(datas['날짜T'], inplace=True)
+        # 유효한 데이터 가장 최근 값으로 채움 
+        preprocess.FillValidData(look_back_days=10)
 
-
-        # Sampling 방법에 따른 데이터 누락을 위해 ref_data 생성
-        reference_list = datas.resample('D', on="날짜T", convention="end")
-        reference_datas = datas.loc[datas["날짜T"].isin(list(reference_list.indices))]
-        pivoted_reference_datas = reference_datas.pivot(index='날짜', columns='아이템명', values='값')
-
-
-        # sampling type
-        # 0: business daily, 1: calendar daily, 2: weekly, 3: monthly
-        sampling_type = 3
-        if sampling_type == 0:
-            sampling_list = datas.resample('B', on="날짜T", convention="end")
-        elif sampling_type == 1:
-            sampling_list = datas.resample('D', on="날짜T", convention="end")
-        elif sampling_type == 2:
-            sampling_list = datas.resample('W', on="날짜T", convention="end")
-        elif sampling_type == 3:
-            sampling_list = datas.resample('M', on="날짜T", convention="end")
-        sampled_datas = datas.loc[datas["날짜T"].isin(list(sampling_list.indices))]
-        #print (sampled_datas)
-        #for idx, values in enumerate(sampled_datas.values):
-        #    print (idx, values)
-        #print (type(sampled_datas))
-
-
-        # pivot 이용해 PCA 분석을 위한 구조로 변경
-        pivoted_sampled_datas = sampled_datas.pivot(index='날짜', columns='아이템명', values='값')
-        for column_nm in pivoted_sampled_datas.columns:
-            for row_nm in pivoted_sampled_datas.index:
-                if pivoted_sampled_datas[column_nm][row_nm] == None:
-                    #print (column_nm, "\t", row_nm, "\t", pivoted_sampled_datas[column_nm][row_nm])
-
-                    #ref_row_nm = copy.copy(row_nm)
-                    ref_row_nm = row_nm
-
-                    # 해당일에 데이터가 없는 경우 가장 최근 값을 대신 사용함
-                    look_back_days = 10
-                    for loop_cnt in range(look_back_days):
-                        try:
-                            if pivoted_reference_datas[column_nm][ref_row_nm] == None:
-                                #print("No Data", str(ref_row_nm))
-                                ref_row_nm = str(datetime.strptime(ref_row_nm, '%Y-%m-%d').date() - timedelta(days=1))
-                            else:
-                                pivoted_sampled_datas[column_nm][row_nm] = pivoted_reference_datas[column_nm][ref_row_nm]
-                        except KeyError:
-                            #print("KeyError", str(ref_row_nm))
-                            ref_row_nm = str(datetime.strptime(ref_row_nm, '%Y-%m-%d').date() - timedelta(days=1))
-
-                # 이후 연산작업을 위해 decimal을 float 형태로 변경
-                if pivoted_sampled_datas[column_nm][row_nm] != None:
-                    pivoted_sampled_datas[column_nm][row_nm] = float(pivoted_sampled_datas[column_nm][row_nm])
-
-
-        # 유효하지 않은 기간 drop
-        drop_basis_from = datetime.strptime('2007-01-31', '%Y-%m-%d').date()
-        drop_basis_to = datetime.strptime('2018-03-31', '%Y-%m-%d').date()
-        pivoted_sampled_datas_cp = copy.deepcopy(pivoted_sampled_datas)
-        for row_nm in pivoted_sampled_datas_cp.index:
-            data_time = datetime.strptime(row_nm, '%Y-%m-%d').date()
-            if data_time < drop_basis_from or data_time > drop_basis_to:
-                #print (row_nm)
-                pivoted_sampled_datas.drop(index=row_nm, inplace=True)
-
-
-        # 유효하지 않은 팩터 drop
-        total_omission_threshold = 1
-        last_omission_threshold = 1
-        last_considerable_num = 6
-        pivoted_sampled_datas_cp = copy.deepcopy(pivoted_sampled_datas)
-        for column_nm in pivoted_sampled_datas_cp.columns:
-            total_null_cnt = pivoted_sampled_datas_cp[column_nm].isnull().sum()
-            last_null_cnt = pivoted_sampled_datas_cp[column_nm][-last_considerable_num:].isnull().sum()
-
-            if total_null_cnt > total_omission_threshold or last_null_cnt > last_omission_threshold:
-                #print('유효하지 않은 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
-                pivoted_sampled_datas.drop(columns=column_nm, inplace=True)
-            elif total_null_cnt:
-                #print('유효한 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
-                for idx, row_nm in enumerate(pivoted_sampled_datas.index):
-                    if pivoted_sampled_datas[column_nm][row_nm] == None:
-                        if idx == 0:
-                            pivoted_sampled_datas[column_nm][idx] = pivoted_sampled_datas[column_nm][idx+1]
-                        else:
-                            pivoted_sampled_datas[column_nm][idx] = pivoted_sampled_datas[column_nm][idx-1]
-
-        Wrap_Util.SavePickleFile(file='pivoted_sampled_datas.pickle', obj=pivoted_sampled_datas)
+        # 유효하지 않은 기간의 데이터 삭제
+        pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2007-01-31', drop_basis_to='2018-03-31')
+        
+        Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas.pickle', obj=pivoted_sampled_datas)
     else:
-        pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='pivoted_sampled_datas.pickle')
+        pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas.pickle')
 
 
-    # Batch 시작
-    window_size_from = 5
-    window_size_to = 24
+    if do_simulation == True:
+        # Batch 시작
+        window_size_from = 12
+        window_size_to = 37
+        #window_size_to = 13
 
-    pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
-    for window_size in range(window_size_from, window_size_to):
-
+        # 단기: 2012-01-01 부터 (QE 시작 시점)
+        # 장기: 데이터 시작일 부터
         profit_calc_start_date = '2012-01-01'
         min_max_check_term = 8
         weight_check_term = 4
         target_index_nm_list = ["MSCI ACWI", "MSCI World", "MSCI EM", "KOSPI", "S&P500", "Nikkei225", "상해종합"]
+        # target_index_nm_list = ["MSCI EM"]
 
+        pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
+        for window_size in range(window_size_from, window_size_to):
 
-        folione = Folione(pivoted_sampled_datas_last_pure_version, window_size
-                          , profit_calc_start_date, min_max_check_term, weight_check_term, target_index_nm_list
-                          , use_window_size_pickle, use_factor_selection_pickle, save_datas_excel)
+            folione = Folione(pivoted_sampled_datas_last_pure_version, window_size
+                              , profit_calc_start_date, min_max_check_term, weight_check_term, target_index_nm_list
+                              , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
+                              , make_simulate_signal
+                              , save_datas_excel, save_correlations_txt)
 
-
-        if use_parallel_process == True:
-            # 신규 프로세스 생성
-            p = mp.Process(target=wf.worker, args=(folione,))
-            p.start()
-            time.sleep(1)
-        else:
-            folione.MakeZScore()
-            folione.SelectFactor()
-            folione.SimulateSignal()
+            if use_parallel_process == True:
+                # 신규 프로세스 생성
+                p = mp.Process(target=wf.FolioneStart, args=(folione,))
+                p.start()
+                time.sleep(1)
+            else:
+                folione.MakeZScore()
+                folione.CalcCorrelation()
+                folione.SelectFactor()
+                folione.MakeSignal()
 
 
     # Test
