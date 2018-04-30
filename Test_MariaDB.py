@@ -146,8 +146,28 @@ class WrapDB(object):
 
         return True
 
-    def insert_value(self, item_cd, date, value):
+    def insert_bloomberg_value(self, item_cd, date, value):
         sql = "INSERT INTO value (date, item_cd, value) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE value=%s"
+        sql_arg = (date, item_cd, value, value)
+
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        # DB 반영
+        self.conn.commit();
+
+        return 1
+
+    def insert_quantiwise_value(self, item_cd, date, value, type):
+        # '주식_시가','주식_종가','주식_거래량','주식_시가총액'
+        if type == '주식_시가':
+            sql = "INSERT INTO value (date, item_cd, open) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE open=%s"
+        elif type == '주식_종가':
+            sql = "INSERT INTO value (date, item_cd, close) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE close=%s"
+        elif type == '주식_거래량':
+            sql = "INSERT INTO value (date, item_cd, volume) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE volume=%s"
+        elif type == '주식_시가총액':
+            sql = "INSERT INTO value (date, item_cd, market_capitalization) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE market_capitalization=%s"
         sql_arg = (date, item_cd, value, value)
 
         # 수행
