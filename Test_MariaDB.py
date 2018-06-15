@@ -98,7 +98,7 @@ class WrapDB(object):
 
         return pd.DataFrame(data)
 
-    def get_datas(self, data_list, start_date = None, end_date = None):
+    def get_bloomberg_datas(self, data_list, start_date = None, end_date = None):
 
         if start_date == None and end_date == None:
             sql = "SELECT a.cd, a.nm, b.date, b.value"\
@@ -107,6 +107,42 @@ class WrapDB(object):
                   "   AND a.cd in (%s)"
         else:
             sql = "SELECT a.cd, a.nm, b.date, b.value" \
+                  "  FROM item AS a, value AS b" \
+                  " WHERE a.cd = b.item_cd" \
+                  "   AND a.cd in (%s)" \
+                  "   AND b.date >= '%s'" \
+                  "   AND b.date <= '%s'"
+
+        sql_arg = None
+
+        target_list = None
+        for idx, ele in enumerate(data_list):
+            if idx == 0:
+                target_list = str(ele)
+            else:
+                target_list += ", " + str(ele)
+
+        if start_date == None and end_date == None:
+            sql = sql % (target_list)
+        else:
+            sql = sql % (target_list, start_date, end_date)
+        print (sql)
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        data = self.cursor.fetchall()
+
+        return pd.DataFrame(data)
+
+    def get_quantiwise_datas(self, data_list, start_date = None, end_date = None):
+
+        if start_date == None and end_date == None:
+            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization"\
+                  "  FROM item AS a, value AS b"\
+                  " WHERE a.cd = b.item_cd"\
+                  "   AND a.cd in (%s)"
+        else:
+            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization" \
                   "  FROM item AS a, value AS b" \
                   " WHERE a.cd = b.item_cd" \
                   "   AND a.cd in (%s)" \

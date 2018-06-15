@@ -24,11 +24,11 @@ use_factor_selection_pickle = True
 use_correlation_pickle = True
 
 # 병렬처리 사용여부
-use_parallel_process = True
+use_parallel_process = False
 
 # Folione 작업
 do_simulation = True
-make_simulate_signal = False
+make_simulate_signal = True
 
 # Debug 데이터 생성 여부
 save_datas_excel = False
@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
         # 유효기간 내 데이터 Read
         data_list, start_date, end_date = preprocess.GetDataList(item_cd="아이템코드", start_date="시작일", last_date="마지막일")
-        datas = db.get_datas(data_list=data_list, start_date=None, end_date=None)
+        datas = db.get_bloomberg_datas(data_list=data_list, start_date=None, end_date=None)
         preprocess.SetDatas(datas=datas, datas_columns=["아이템코드", "아이템명", "날짜", "값"])
 
         # DataFrame 형태의 Sampled Data 생성
