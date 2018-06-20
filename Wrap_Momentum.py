@@ -38,7 +38,7 @@ if __name__ == '__main__':
     case_statistics = {"normal": {"count": 0, "rate": 0.0, "date": 0.0}, "loss_cut": {"count": 0, "rate": 0.0, "date": 0.0},"open": {"count": 0, "rate": 0.0, "date": 0.0}}
 
     event_dates_dict = {}
-    volume_surpise_multiple = 10.0
+    volume_surpise_multiple = 20.0
     use_loss_cut = True
     loss_cut_ratio = -0.30 # -30%에서 손절
     for column_nm in pivoted_datas["거래량"].columns:
@@ -49,6 +49,10 @@ if __name__ == '__main__':
         buy_day = "9999-99-99"
         sell_day = "9999-99-99"
         for idx, row_nm in enumerate(pivoted_datas["거래량"].index):
+            # Start Day 보다 이전 데이터는 PASS
+            if datetime.strptime(row_nm,'%Y-%m-%d').date() < datetime.strptime("2006-01-01",'%Y-%m-%d').date():
+                continue
+
             try:
                 # 데이터 존재 여부 및 시가총액 필터링
                 if pivoted_datas["거래량"][column_nm][idx] is not None:# and pivoted_datas["시가총액"][column_nm][idx] > 500000000000: #최초 DB 생성시 시가종행 50억에 거래금액 10억 이상으로 제한함.
@@ -73,7 +77,7 @@ if __name__ == '__main__':
                     # 외인과 기관에서 순매수 발생
                     if status == False:
                         if pivoted_datas["거래량"][column_nm][idx] > volume_surpise_multiple * pivoted_datas["평균_거래량"][column_nm][idx-1] \
-                            and (pivoted_datas["평균_기관_순매수"][column_nm][idx] > 1.0 or pivoted_datas["평균_외인_순매수"][column_nm][idx] > 1.0):
+                            and (pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] > 1.0):
 
                             # 거래정지 해지에 의한 거래량 증가 필터링
                             # 과거 최근 일자에 거래정지 기간이 있어 평균 거래량이 작게 계산된 경우 PASS
@@ -92,7 +96,7 @@ if __name__ == '__main__':
                                 # 역사적 저점 판단: 50영업일
                                 a = float(pivoted_datas["종가"][column_nm][idx]) - float(pivoted_datas["종가"][column_nm][max(idx - 50, 0):idx].min())
                                 b = float(pivoted_datas["종가"][column_nm][max(idx - 50, 0):idx].max()) - float(pivoted_datas["종가"][column_nm][max(idx - 50, 0):idx].min())
-                                if a / b >= 0.5:
+                                if 1:#a / b >= 0.5:
                                     status = True
                                     buy_price = float(pivoted_datas["시가"][column_nm][idx+1])
                                     buy_day = row_nm

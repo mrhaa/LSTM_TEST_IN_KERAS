@@ -329,10 +329,12 @@ from openpyxl import load_workbook
 
 
 start_time = timeit.default_timer()
-wb = load_workbook(filename='국내주식_MarketData_.xlsx', read_only=False, data_only=False)
-
-wb_list = ['주식_시가','주식_종가']
-#wb_list = ['주식_시가','주식_종가','주식_거래량','주식_시가총액','주식_기관순매수','주식_외인순매수']
+if 1:
+    wb = load_workbook(filename='국내주식_MarketData1_.xlsx', read_only=False, data_only=False)
+    wb_list = ['주식_시가','주식_종가','주식_거래량','주식_시가총액']
+else:
+    wb = load_workbook(filename='국내주식_MarketData2_.xlsx', read_only=False, data_only=False)
+    wb_list = ['주식_기관순매수','주식_외인순매수']
 for wb_nm in wb_list:
     ws = wb[wb_nm]
     end_time = timeit.default_timer()
