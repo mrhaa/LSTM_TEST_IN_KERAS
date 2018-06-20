@@ -137,12 +137,12 @@ class WrapDB(object):
     def get_quantiwise_datas(self, data_list, start_date = None, end_date = None):
 
         if start_date == None and end_date == None:
-            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization"\
+            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy"\
                   "  FROM item AS a, value AS b"\
                   " WHERE a.cd = b.item_cd"\
                   "   AND a.cd in (%s)"
         else:
-            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization" \
+            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy" \
                   "  FROM item AS a, value AS b" \
                   " WHERE a.cd = b.item_cd" \
                   "   AND a.cd in (%s)" \
@@ -204,6 +204,11 @@ class WrapDB(object):
             sql = "INSERT INTO value (date, item_cd, volume) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE volume=%s"
         elif type == '주식_시가총액':
             sql = "INSERT INTO value (date, item_cd, market_capitalization) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE market_capitalization=%s"
+        elif type == '주식_기관순매수':
+            sql = "INSERT INTO value (date, item_cd, company_net_buy) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE company_net_buy=%s"
+        elif type == '주식_외인순매수':
+            sql = "INSERT INTO value (date, item_cd, foreigner_net_buy) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE foreigner_net_buy=%s"
+        #print (sql)
         sql_arg = (date, item_cd, value, value)
 
         # 수행
