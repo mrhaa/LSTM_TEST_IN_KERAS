@@ -41,6 +41,8 @@ if __name__ == '__main__':
     volume_surpise_multiple = 20.0
     use_loss_cut = True
     loss_cut_ratio = -0.30 # -30%에서 손절
+    position_in_threshold = 0.0
+    position_out_threshold = -10.0
     for column_nm in pivoted_datas["거래량"].columns:
         event_dates_dict[column_nm] = {}
         status = False # False: No Position, True: Position
@@ -58,7 +60,8 @@ if __name__ == '__main__':
                 if pivoted_datas["거래량"][column_nm][idx] is not None:# and pivoted_datas["시가총액"][column_nm][idx] > 500000000000: #최초 DB 생성시 시가종행 50억에 거래금액 10억 이상으로 제한함.
 
                     # open 상태로 완료된 시뮬레이션
-                    if row_nm == pivoted_datas["거래량"].index[-1] and status == True:
+                    #if row_nm == pivoted_datas["거래량"].index[-1] and status == True:
+                    if row_nm == pivoted_datas["거래량"].index[-2] and status == True:
                         status = False
                         sell_day = row_nm
                         sell_price = float(pivoted_datas["종가"][column_nm][sell_day])
@@ -77,7 +80,9 @@ if __name__ == '__main__':
                     # 외인과 기관에서 순매수 발생
                     if status == False:
                         if pivoted_datas["거래량"][column_nm][idx] > volume_surpise_multiple * pivoted_datas["평균_거래량"][column_nm][idx-1] \
-                            and (pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] > 1.0):
+                            and (pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] > position_in_threshold):
+                            #and pivoted_datas["평균_외인_순매수"][column_nm][idx] > 1.0:
+
 
                             # 거래정지 해지에 의한 거래량 증가 필터링
                             # 과거 최근 일자에 거래정지 기간이 있어 평균 거래량이 작게 계산된 경우 PASS
@@ -119,7 +124,9 @@ if __name__ == '__main__':
                             case_statistics["loss_cut"]["date"] += (datetime.strptime(sell_day, '%Y-%m-%d').date() - datetime.strptime(buy_day,'%Y-%m-%d').date()).days
 
                         # 외인과 기관의 순매도 발생
-                        if pivoted_datas["평균_기관_순매수"][column_nm][idx] < -10.0 or pivoted_datas["평균_외인_순매수"][column_nm][idx] < -10.0:
+                        #if pivoted_datas["평균_기관_순매수"][column_nm][idx] < -10.0:
+                        #if pivoted_datas["평균_외인_순매수"][column_nm][idx] < -10.0 or pivoted_datas["평균_외인_순매수"][column_nm][idx] < -10.0:
+                        if pivoted_datas["평균_외인_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] < position_out_threshold:
                             status = False
                             sell_price = float(pivoted_datas["시가"][column_nm][idx+1])
                             sell_day = row_nm

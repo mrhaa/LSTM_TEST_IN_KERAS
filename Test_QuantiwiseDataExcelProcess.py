@@ -329,7 +329,7 @@ from openpyxl import load_workbook
 
 
 start_time = timeit.default_timer()
-if 1:
+if 0:
     wb = load_workbook(filename='국내주식_MarketData1_.xlsx', read_only=False, data_only=False)
     wb_list = ['주식_시가','주식_종가','주식_거래량','주식_시가총액']
 else:
@@ -354,11 +354,11 @@ for wb_nm in wb_list:
     for column_idx, column in enumerate(all_columns):
         
         # 날짜 컬럼
-        if column_idx == 1:
+        if column_idx == 0:
             dates = copy.copy(column)
 
         # 데이터 컬럼 시작
-        elif column_idx >= 5:
+        elif column_idx >= 1:
             values = copy.copy(column)
 
             # insert 되는 item 갯수 확인
@@ -370,8 +370,9 @@ for wb_nm in wb_list:
             item_name = None
             ticker = None
             for row_idx in range(len(dates)):
-
-                if row_idx == 9:
+                
+                # 종목명 행
+                if row_idx == 8:
                     
                     # 데이터 존재하지 않는 컬럼을 리드하려고 하는 경우
                     if values[row_idx].value == None:
@@ -381,14 +382,16 @@ for wb_nm in wb_list:
                     item_nm = values[row_idx].value
                     #print (values[idx].value, item_cd)
 
-                elif row_idx >= 11:
+                # 데이터 행 시작
+                elif row_idx >= 14:
 
                     # Null 셀이면 다음 item으로 패스
                     if values[row_idx].value == None:
                         continue
 
                     #print(str(dates[idx].value)[:10], "\t", item_cd, "\t", values[idx].value, "\t", group_cd)
-                    s_date = str(dates[row_idx].value)[0:4] + '-' + str(dates[row_idx].value)[4:6] +'-'+ str(dates[row_idx].value)[6:8]
+                    #s_date = str(dates[row_idx].value)[0:4] + '-' + str(dates[row_idx].value)[4:6] +'-'+ str(dates[row_idx].value)[6:8]
+                    s_date = str(dates[row_idx].value)[0:10]
                     f_value = round(values[row_idx].value, 10)
                     count += db.insert_quantiwise_value(item_cd, s_date, f_value, wb_nm)
                     #break
