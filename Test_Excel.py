@@ -2,6 +2,7 @@
 
 import win32com.client
 from Test_MariaDB import WrapDB
+import math
 import pandas as pd
 import xlsxwriter
 import openpyxl
@@ -54,7 +55,7 @@ if 0:
                 elif idx == 2:
                     ticker = values[idx].value
                     print (ticker)
-                elif dates[idx].value == None:
+                elif math.isnan(dates[idx].value) == True:
                     pass
                 else:
                     print(str(dates[idx].value)[:10], "\t", values[idx].value, type(values[idx].value))

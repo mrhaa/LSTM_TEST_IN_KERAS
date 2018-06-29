@@ -484,7 +484,7 @@ for idx, column in enumerate(all_columns):
             else:
                 
                 # Null 셀이면 다음 item으로 패스
-                if values[idx].value == None:
+                if math.isnan(values[idx].value) == True:
                     break
 
                 #print(str(dates[idx].value)[:10], "\t", item_cd, "\t", values[idx].value, "\t", group_cd)

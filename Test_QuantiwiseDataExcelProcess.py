@@ -6,7 +6,7 @@ import pandas as pd
 import xlsxwriter
 import openpyxl
 from xlutils.copy import copy as xl_copy
-
+import math
 
 item_dic = {
 "삼천당제약":1
@@ -375,7 +375,7 @@ for wb_nm in wb_list:
                 if row_idx == 8:
                     
                     # 데이터 존재하지 않는 컬럼을 리드하려고 하는 경우
-                    if values[row_idx].value == None:
+                    if math.isnan(values[row_idx].value) == True:
                         break
 
                     item_cd = item_dic[values[row_idx].value]
@@ -386,7 +386,7 @@ for wb_nm in wb_list:
                 elif row_idx >= 14:
 
                     # Null 셀이면 다음 item으로 패스
-                    if values[row_idx].value == None:
+                    if math.isnan(values[row_idx].value) == True:
                         continue
 
                     #print(str(dates[idx].value)[:10], "\t", item_cd, "\t", values[idx].value, "\t", group_cd)

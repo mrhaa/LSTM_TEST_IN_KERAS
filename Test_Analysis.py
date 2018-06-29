@@ -18,21 +18,21 @@ from Wrap_Folione import Folione
 import Wrap_Folione as wf
 
 # 준비단계 데이터 생성
-use_datas_pickle = True
-use_window_size_pickle = True
-use_factor_selection_pickle = True
-use_correlation_pickle = True
+use_datas_pickle = False
+use_window_size_pickle = False
+use_factor_selection_pickle = False
+use_correlation_pickle = False
 
 # 병렬처리 사용여부
-use_parallel_process = False
+use_parallel_process = True
 
 # Folione 작업
 do_simulation = True
 make_simulate_signal = True
 
 # Debug 데이터 생성 여부
-save_datas_excel = False
-save_correlations_txt = False
+save_datas_excel = True
+save_correlations_txt = True
 
 # 데이터 분석
 do_pca = False
@@ -59,6 +59,7 @@ if __name__ == '__main__':
         preprocess.MakeDateRange(start_date="시작일", last_date="마지막일")
 
         # 유효기간 내 데이터 Read
+        # raw 데이터의 기간이 체계가 없어 return 받은 start_date, end_date을 사용할 수 없다.
         data_list, start_date, end_date = preprocess.GetDataList(item_cd="아이템코드", start_date="시작일", last_date="마지막일")
         datas = db.get_bloomberg_datas(data_list=data_list, start_date=None, end_date=None)
         preprocess.SetDatas(datas=datas, datas_columns=["아이템코드", "아이템명", "날짜", "값"])
@@ -71,7 +72,8 @@ if __name__ == '__main__':
         preprocess.FillValidData(look_back_days=10)
 
         # 유효하지 않은 기간의 데이터 삭제
-        pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2007-01-31', drop_basis_to='2018-03-31')
+        # drop_basis_from: '2007-01-31', drop_basis_to: '가장 최근 말일'는 가장 유효한 factor를 많이 사용할 수 있는 기간을 찾아 적요하였음.
+        pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2010-01-31', drop_basis_to='2018-03-31')
         
         Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas.pickle', obj=pivoted_sampled_datas)
     else:
@@ -82,7 +84,6 @@ if __name__ == '__main__':
         # Batch 시작
         window_size_from = 12
         window_size_to = 37
-        #window_size_to = 13
 
         # 단기: 2012-01-01 부터 (QE 시작 시점)
         # 장기: 데이터 시작일 부터
@@ -90,27 +91,26 @@ if __name__ == '__main__':
         min_max_check_term = 8
         weight_check_term = 4
         target_index_nm_list = ["MSCI ACWI", "MSCI World", "MSCI EM", "KOSPI", "S&P500", "Nikkei225", "상해종합"]
-        # target_index_nm_list = ["MSCI EM"]
 
         pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
         for window_size in range(window_size_from, window_size_to):
+            for target_index_nm in target_index_nm_list:
+                folione = Folione(pivoted_sampled_datas_last_pure_version, window_size
+                                  , profit_calc_start_date, min_max_check_term, weight_check_term, target_index_nm
+                                  , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
+                                  , make_simulate_signal
+                                  , save_datas_excel, save_correlations_txt)
 
-            folione = Folione(pivoted_sampled_datas_last_pure_version, window_size
-                              , profit_calc_start_date, min_max_check_term, weight_check_term, target_index_nm_list
-                              , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
-                              , make_simulate_signal
-                              , save_datas_excel, save_correlations_txt)
-
-            if use_parallel_process == True:
-                # 신규 프로세스 생성
-                p = mp.Process(target=wf.FolioneStart, args=(folione,))
-                p.start()
-                time.sleep(1)
-            else:
-                folione.MakeZScore()
-                folione.CalcCorrelation()
-                folione.SelectFactor()
-                folione.MakeSignal()
+                if use_parallel_process == True:
+                    # 신규 프로세스 생성
+                    p = mp.Process(target=wf.FolioneStart, args=(folione,))
+                    p.start()
+                    time.sleep(1)
+                else:
+                    folione.MakeZScore()
+                    folione.CalcCorrelation()
+                    folione.SelectFactor()
+                    folione.MakeSignal()
 
 
     # Test

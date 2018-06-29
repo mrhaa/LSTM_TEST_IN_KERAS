@@ -126,7 +126,7 @@ class WrapDB(object):
             sql = sql % (target_list)
         else:
             sql = sql % (target_list, start_date, end_date)
-        print (sql)
+        #print (sql)
         # 수행
         self.cursor.execute(sql, sql_arg)
 
