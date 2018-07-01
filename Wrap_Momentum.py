@@ -11,6 +11,7 @@ from scipy.stats import norm
 from Test_MariaDB import WrapDB
 
 print_log = True
+print_analysis_log = True
 
 if __name__ == '__main__':
 
@@ -36,7 +37,11 @@ if __name__ == '__main__':
     pivoted_datas["평균_외인_순매수"] = pivoted_datas["외인_순매수"].rolling(mean_window).mean()
 
     # 통계 분석 변수
-    case_statistics = {"normal": {"count": 0, "rate": 0.0, "date": 0.0}, "loss_cut": {"count": 0, "rate": 0.0, "date": 0.0},"open": {"count": 0, "rate": 0.0, "date": 0.0}}
+    case_statistics = {"normal": {"count": 0, "rate": 0.0, "date": 0.0}
+        , "normal_gain": {"count": 0, "rate": 0.0, "date": 0.0}
+        , "normal_loss": {"count": 0, "rate": 0.0, "date": 0.0}
+        , "loss_cut": {"count": 0, "rate": 0.0, "date": 0.0}
+        ,"open": {"count": 0, "rate": 0.0, "date": 0.0}}
 
     # 글로벌 셋팅 파라미터
     volume_surpise_multiple = 20.0
@@ -92,6 +97,8 @@ if __name__ == '__main__':
                             case_statistics["open"]["count"] += 1
                             case_statistics["open"]["rate"] += sell_price[column_nm] / buy_price[column_nm] - 1
                             case_statistics["open"]["date"] += (datetime.strptime(sell_day[column_nm], '%Y-%m-%d').date() - datetime.strptime(buy_day[column_nm],'%Y-%m-%d').date()).days
+
+                        continue
 
                     # 과거 평균 거래량 보다 비상적으로 많은 거래가 발생하는 경우
                     # 외인과 기관에서 순매수 발생
@@ -160,6 +167,26 @@ if __name__ == '__main__':
                             case_statistics["normal"]["rate"] += sell_price[column_nm] / buy_price[column_nm] - 1
                             case_statistics["normal"]["date"] += (datetime.strptime(sell_day[column_nm], '%Y-%m-%d').date() - datetime.strptime(buy_day[column_nm],'%Y-%m-%d').date()).days
 
+                            if sell_price[column_nm] > buy_price[column_nm]:
+                                case_statistics["normal_gain"]["count"] += 1
+                                case_statistics["normal_gain"]["rate"] += sell_price[column_nm] / buy_price[column_nm] - 1
+                                case_statistics["normal_gain"]["date"] += (datetime.strptime(sell_day[column_nm],'%Y-%m-%d').date() - datetime.strptime(buy_day[column_nm], '%Y-%m-%d').date()).days
+                            else:
+                                case_statistics["normal_loss"]["count"] += 1
+                                case_statistics["normal_loss"]["rate"] += sell_price[column_nm] / buy_price[column_nm] - 1
+                                case_statistics["normal_loss"]["date"] += (datetime.strptime(sell_day[column_nm],'%Y-%m-%d').date() - datetime.strptime(buy_day[column_nm], '%Y-%m-%d').date()).days
+
+
+                                # 정상 포지션 정리 되었지만 손실 난 경우 분석
+                                if print_analysis_log == True:
+                                    for loss_row_nm in pivoted_datas["종가"].index[idx:]:
+                                        if loss_row_nm <= pivoted_datas["거래량"].index[-2] \
+                                            and pivoted_datas["종가"][column_nm][loss_row_nm] > max(buy_price[column_nm], sell_price[column_nm]):
+                                            print(column_nm, "\t", buy_day[column_nm], "\t", buy_price[column_nm], "\t"
+                                                  , sell_day[column_nm], "\t", sell_price[column_nm], "\t"
+                                                  , loss_row_nm, "\t", pivoted_datas["종가"][column_nm][loss_row_nm])
+                                            break
+
             except IndexError:
                 pass
             except (ValueError, DecimalException):
@@ -168,6 +195,10 @@ if __name__ == '__main__':
     # print log
     print("normal", '\t', case_statistics["normal"]["count"], '\t', case_statistics["normal"]["rate"] / case_statistics["normal"]["count"], '\t'
           , case_statistics["normal"]["date"] / case_statistics["normal"]["count"])
+    print("normal_gain", '\t', case_statistics["normal_gain"]["count"], '\t', case_statistics["normal_gain"]["rate"] / case_statistics["normal_gain"]["count"], '\t'
+          , case_statistics["normal_gain"]["date"] / case_statistics["normal_gain"]["count"])
+    print("normal_loss", '\t', case_statistics["normal_loss"]["count"], '\t', case_statistics["normal_loss"]["rate"] / case_statistics["normal_loss"]["count"], '\t'
+          , case_statistics["normal_loss"]["date"] / case_statistics["normal_loss"]["count"])
     if case_statistics["loss_cut"]["count"] > 0:
         print("loss_cut", '\t', case_statistics["loss_cut"]["count"], '\t', case_statistics["loss_cut"]["rate"] / case_statistics["loss_cut"]["count"], '\t'
               , case_statistics["loss_cut"]["date"] / case_statistics["loss_cut"]["count"])
