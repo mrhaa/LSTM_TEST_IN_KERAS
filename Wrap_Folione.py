@@ -245,11 +245,21 @@ class Folione (object):
             # 데이터의 변화가 없어 표준편차가 0(ZeroDivisionError)인 경우 때문에 DataFrame을 이용한 연산처리 불가
             self.zscore_data = copy.deepcopy(self.raw_data)
             for column_nm in self.zscore_data.columns:
-                for row_nm in self.zscore_data.index:
+                for idx, row_nm in enumerate(self.zscore_data.index):
+                    '''
+                    # Test 미국 연방기금 목표금리, 2010-12-31
+                    if (column_nm == '미국 연방기금 목표금리' and row_nm == '2010-12-31') or (column_nm == '중국 기준금리' and row_nm == '2014-06-30'):
+                        print ('Test Debug', '\t', column_nm, '\t', row_nm)
+                    '''
                     try:
                         self.zscore_data[column_nm][row_nm] = (self.raw_data[column_nm][row_nm] - self.mean_data[column_nm][row_nm]) / self.std_data[column_nm][row_nm]
+
+                        # std 0이어도 Error 발생하지 않는 경우 있음.
+                        if numpy.isnan(self.zscore_data[column_nm][row_nm]) == True or numpy.isinf(self.zscore_data[column_nm][row_nm]) == True:
+                            self.zscore_data[column_nm][row_nm] = self.zscore_data[column_nm][idx-1]
                     except ZeroDivisionError:
-                        self.zscore_data[column_nm][row_nm] = 0.0
+                        #self.zscore_data[column_nm][row_nm] = 0.0
+                        self.zscore_data[column_nm][row_nm] = self.zscore_data[column_nm][idx-1]
 
             Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.zscore_data)
 

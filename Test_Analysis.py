@@ -24,13 +24,13 @@ use_datas_pickle = True # 중간 저장된 raw data 사용 여부
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
-use_correlation_pickle = True # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
+use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
+use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
 use_factor_selection_pickle = False
 make_simulate_signal = False
 
 # 병렬처리 사용여부
-use_parallel_process = False
+use_parallel_process = True
 
 # Debug 데이터 생성 여부
 save_datas_excel = True
@@ -118,8 +118,10 @@ if __name__ == '__main__':
         # 중기, 단기 시뮬레이션
         else:
             target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합"]
+        '''
         # Test
         target_index_nm_list = ["S&P500"]
+        '''
 
         pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
         for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
