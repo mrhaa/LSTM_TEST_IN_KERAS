@@ -10,7 +10,7 @@ from scipy.stats.kde import gaussian_kde
 from scipy.stats import norm
 from Test_MariaDB import WrapDB
 
-print_log = True
+print_log = False
 print_analysis_log = True
 
 if __name__ == '__main__':
@@ -44,11 +44,11 @@ if __name__ == '__main__':
         ,"open": {"count": 0, "rate": 0.0, "date": 0.0}}
 
     # 글로벌 셋팅 파라미터
-    volume_surpise_multiple = 20.0
+    volume_surpise_multiple = 10.0
     use_loss_cut = True
     loss_cut_ratio = -0.30 # -30%에서 손절
     position_in_threshold = 0.0
-    position_out_threshold = -10.0
+    position_out_threshold = -5.0
 
     # 1차 시간순으로 처리
     for idx, row_nm in enumerate(pivoted_datas["거래량"].index):
@@ -105,8 +105,9 @@ if __name__ == '__main__':
                     if status[column_nm] == False:
                         #print(column_nm, row_nm, pivoted_datas["거래량"].index[-2], pivoted_datas["거래량"][column_nm][idx], pivoted_datas["평균_거래량"][column_nm][idx-1], pivoted_datas["평균_기관_순매수"][column_nm][idx], pivoted_datas["평균_외인_순매수"][column_nm][idx])
                         if pivoted_datas["거래량"][column_nm][idx] > volume_surpise_multiple * pivoted_datas["평균_거래량"][column_nm][idx-1] \
-                            and (pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] > position_in_threshold)\
-                            and (pivoted_datas["종가"][column_nm][idx] / pivoted_datas["시가"][column_nm][idx] > 1.0):
+                            and pivoted_datas["종가"][column_nm][idx] / pivoted_datas["시가"][column_nm][idx] > 1.0 \
+                            and pivoted_datas["평균_외인_순매수"][column_nm][idx] > position_in_threshold:
+                            #and (pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] > position_in_threshold):
                             #and pivoted_datas["평균_외인_순매수"][column_nm][idx] > 1.0:
 
 
@@ -151,8 +152,10 @@ if __name__ == '__main__':
 
                         # 외인과 기관의 순매도 발생
                         #if pivoted_datas["평균_기관_순매수"][column_nm][idx] < -10.0:
-                        #if pivoted_datas["평균_외인_순매수"][column_nm][idx] < -10.0 or pivoted_datas["평균_외인_순매수"][column_nm][idx] < -10.0:
-                        if pivoted_datas["평균_외인_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] < position_out_threshold:
+                        #if pivoted_datas["평균_기관_순매수"][column_nm][idx] < -10.0 or pivoted_datas["평균_외인_순매수"][column_nm][idx] < -10.0:
+                        #if pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] < position_out_threshold:
+                        if pivoted_datas["평균_외인_순매수"][column_nm][idx] < position_out_threshold:
+
                             status[column_nm] = False
                             sell_price[column_nm] = float(pivoted_datas["시가"][column_nm][idx+1])
                             sell_day[column_nm] = row_nm
@@ -193,20 +196,23 @@ if __name__ == '__main__':
                 pass
 
     # print log
-    print("normal", '\t', case_statistics["normal"]["count"], '\t', case_statistics["normal"]["rate"] / case_statistics["normal"]["count"], '\t'
-          , case_statistics["normal"]["date"] / case_statistics["normal"]["count"])
-    print("normal_gain", '\t', case_statistics["normal_gain"]["count"], '\t', case_statistics["normal_gain"]["rate"] / case_statistics["normal_gain"]["count"], '\t'
-          , case_statistics["normal_gain"]["date"] / case_statistics["normal_gain"]["count"])
-    print("normal_loss", '\t', case_statistics["normal_loss"]["count"], '\t', case_statistics["normal_loss"]["rate"] / case_statistics["normal_loss"]["count"], '\t'
-          , case_statistics["normal_loss"]["date"] / case_statistics["normal_loss"]["count"])
+    if case_statistics["normal"]["count"] > 0:
+        print("normal", '\t', case_statistics["normal"]["count"], '\t', case_statistics["normal"]["rate"] / case_statistics["normal"]["count"], '\t'
+              , case_statistics["normal"]["date"] / case_statistics["normal"]["count"])
+    if case_statistics["normal_gain"]["count"] > 0:
+        print("normal_gain", '\t', case_statistics["normal_gain"]["count"], '\t', case_statistics["normal_gain"]["rate"] / case_statistics["normal_gain"]["count"], '\t'
+              , case_statistics["normal_gain"]["date"] / case_statistics["normal_gain"]["count"])
+    if case_statistics["normal_loss"]["count"] > 0:
+        print("normal_loss", '\t', case_statistics["normal_loss"]["count"], '\t', case_statistics["normal_loss"]["rate"] / case_statistics["normal_loss"]["count"], '\t'
+              , case_statistics["normal_loss"]["date"] / case_statistics["normal_loss"]["count"])
     if case_statistics["loss_cut"]["count"] > 0:
         print("loss_cut", '\t', case_statistics["loss_cut"]["count"], '\t', case_statistics["loss_cut"]["rate"] / case_statistics["loss_cut"]["count"], '\t'
               , case_statistics["loss_cut"]["date"] / case_statistics["loss_cut"]["count"])
-    print("open", '\t', case_statistics["open"]["count"], '\t',case_statistics["open"]["rate"] / case_statistics["open"]["count"], '\t'
-          , case_statistics["open"]["date"] / case_statistics["open"]["count"])
+    if case_statistics["open"]["count"] > 0:
+        print("open", '\t', case_statistics["open"]["count"], '\t',case_statistics["open"]["rate"] / case_statistics["open"]["count"], '\t'
+              , case_statistics["open"]["date"] / case_statistics["open"]["count"])
     print("total", '\t', case_statistics["normal"]["count"] + case_statistics["loss_cut"]["count"], '\t'
-          , (case_statistics["normal"]["rate"] + case_statistics["loss_cut"]["rate"]) / (case_statistics["normal"]["count"] + case_statistics["loss_cut"]["count"]))
-
+              , (case_statistics["normal"]["rate"] + case_statistics["loss_cut"]["rate"]) / (case_statistics["normal"]["count"] + case_statistics["loss_cut"]["count"]))
 
     if 0:
         plt.style.use("ggplot")

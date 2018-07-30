@@ -6,6 +6,7 @@ from datetime import timedelta
 import operator
 import pandas as pd
 import math
+import numpy
 
 import Wrap_Util
 
@@ -166,7 +167,8 @@ class Preprocess (object):
 
 class Folione (object):
 
-    def __init__(self, raw_data, window_size, profit_calc_start_date, min_max_check_term, weight_check_term, target_index_nm
+    def __init__(self, raw_data, window_size, simulation_term_type
+                 , profit_calc_start_date, min_max_check_term, weight_check_term, target_index_nm
                  , use_window_size_pickle=False, use_factor_selection_pickle=False, use_correlation_pickle=False
                  , make_folione_signal = False
                  , save_datas_excel=False, save_correlations_txt=False):
@@ -190,13 +192,11 @@ class Folione (object):
         # Factor 별 Target Index와 Moving Correlation
         # 1단계: rolling month, 2단계: target index, 3단계: factor
         self.rolling_correlations = {}
-        # 1단계: target index_factor, rolling month 중 최고 값 사용
-        self.corr_direction = {}
-        self.corr_lag = {}
-        self.corr_max = {}
+        self.corr = None
 
         # Folione 고유 파라미터
         self.window_size = copy.deepcopy(window_size) # Z-Score 만들기 위한 기간
+        self.simulation_term_type = copy.deepcopy(simulation_term_type)  # 장,중,단기 시뮬레이션
         self.profit_calc_start_date = datetime.strptime(profit_calc_start_date, '%Y-%m-%d').date() # Factor 별 누적 수익률 시작일 (장/단기에 따라 변동)
         self.target_index_nm = copy.deepcopy(target_index_nm) # target index, Ex. "MSCI ACWI", "MSCI World", "MSCI EM", "KOSPI", "S&P500", "Nikkei225", "상해종합"
         self.min_max_check_term = copy.deepcopy(min_max_check_term) # Min/Max의 평균 Z-Score를 구하기 위한 기간
@@ -251,14 +251,14 @@ class Folione (object):
                     except ZeroDivisionError:
                         self.zscore_data[column_nm][row_nm] = 0.0
 
-            Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size), obj=self.zscore_data)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.zscore_data)
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='.\\pickle\\save_datas_excel_target_index_%s_window_size_%s.xlsx' % (self.target_index_nm, self.window_size)
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\save_datas_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size)
                                          , obj_dict={'raw_data': self.raw_data, 'mean_data': self.mean_data, 'std_data': self.std_data, 'zscore_data': self.zscore_data})
 
         else:
-            self.zscore_data = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size))
+            self.zscore_data = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
 
         return True
 
@@ -267,50 +267,85 @@ class Folione (object):
 
         if self.use_factor_selection_pickle == False:
 
+            if self.save_datas_excel:
+                factor_signal_data = copy.deepcopy(self.zscore_data)
+                average_zscore_data = copy.deepcopy(self.zscore_data)
+                max_zscore_data = copy.deepcopy(self.zscore_data)
+
             index_nm = self.target_index_nm
 
             # 누적 수익률 저장 공간
             self.model_accumulated_profits[index_nm] = {}
             self.bm_accumulated_profits[index_nm] = {}
 
+            check_first_data = False
             for column_nm in self.zscore_data.columns:
 
-                # 역관계이면 z-score에 -1을 곱한다.
-                zscore_column_data = self.corr_direction[index_nm + "_" + column_nm] * copy.deepcopy(self.zscore_data[column_nm])
+                if self.save_datas_excel:
+                    factor_signal_data[column_nm].values.fill(0)
+                    average_zscore_data[column_nm].values.fill(0)
+                    max_zscore_data[column_nm].values.fill(0)
 
                 # Factor별 수익률 계산
+                # 현재, Target Index와 Factor가 동일한 경우는 제외한다.
                 if column_nm != index_nm:
                     # 누적 수익률 초기화
                     self.model_accumulated_profits[index_nm][column_nm] = 1.0
                     self.bm_accumulated_profits[index_nm][column_nm] = 1.0
+                    
+                    # Correlation lag 사용여부
+                    # FACTOR LAG 사용: 1, 미사용: 0
+                    use_factor_lag = 1
+                    max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag else 0
 
                     # 주식 Buy, Sell 포지션 판단
-                    new_point = self.min_max_check_term - 1
-                    average_array = [0] * self.min_max_check_term
+                    new_point = self.weight_check_term - 1
+                    average_array = [0] * self.weight_check_term
                     for idx, row_nm in enumerate(self.zscore_data.index):
                         try:
                             # 과거 moving average 생성 및 시프트
                             # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
-                            if idx >= new_point:
+                            if idx >= (self.min_max_check_term - 1) + max_factor_lag:
+                                # 최신 데이터를 한칸씩 시프트
                                 average_array[:new_point] = average_array[-new_point:]
-                                #average_array[new_point] = (zscore_column_data[idx - new_point:idx + 1].min() + zscore_column_data[idx - new_point:idx + 1].max()) / 2
-                                average_array[new_point] = zscore_column_data[idx - new_point:idx + 1].mean()
+
+                                # 역관계이면 z-score에 -1을 곱한다.
+                                factor_lag = int(self.corr[index_nm + "_" + column_nm]['lag']) if use_factor_lag else 0
+                                #average_array[new_point] = self.corr[index_nm + "_" + column_nm]['direction'] \
+                                #                           * (self.zscore_column_data[idx - (self.min_max_check_term - 1):idx + 1].min() + self.zscore_column_data[idx - (self.min_max_check_term - 1):idx + 1].max()) / 2 # 과거 Folione과 동일한 로직(중간값 개념)
+                                average_array[new_point] = int(self.corr[index_nm + "_" + column_nm]['direction']) * self.zscore_data[column_nm][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean() # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
 
                                 # 수익률 계산 시작
                                 # factor 검증 start date 이후 부터 처리
                                 # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - new_point >= self.weight_check_term:
+                                if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+                                    
+                                    # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
+                                    if check_first_data == False:
+                                        print (self.window_size, row_nm)
+                                        check_first_data = True
+
                                     if 0:
                                         # 이번 signal의 위치에 맞게 주식비율 조절 매수
                                         ai_profit_rate = 0.0159 / 12 # 예탁이용료 1달 수익률
-                                        buy_ratio = (average_array[new_point] - average_array[-self.weight_check_term:].min()) / (average_array[-self.weight_check_term:].max() - average_array[-self.weight_check_term:].min())
+                                        buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
                                         if buy_ratio >= 0.0:
-                                            self.model_accumulated_profits[index_nm][column_nm] *= (1 + (buy_ratio * (self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx] - 1) + (1 - buy_ratio) * ai_profit_rate))
+                                            self.model_accumulated_profits[index_nm][column_nm] *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
                                     else:
                                         # 이번 signal이 max인 경우 주식 100% 매수
-                                        if average_array[new_point] == max(average_array[-self.weight_check_term:]):
-                                            self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx])
-                                    self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx])
+                                        if average_array[new_point] == max(average_array):
+                                            # self.raw_data[index_nm].index.values[self.window_size + idx]
+                                            # raw data는 zscore data에 비해 window size 만큼 data가 많음
+                                            self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+
+                                            if self.save_datas_excel:
+                                                factor_signal_data[column_nm][idx] = 1
+
+                                    if self.save_datas_excel:
+                                        average_zscore_data[column_nm][idx] = average_array[new_point]
+                                        max_zscore_data[column_nm][idx] = max(average_array)
+
+                                    self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
                                     # print(index_nm, '\t', column_nm, '\t', row_nm, '\t', model_accumulated_profits, '\t', bm_accumulated_profits)
                         except IndexError:
                             # print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
@@ -320,18 +355,22 @@ class Folione (object):
                     '''
                     if self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
                         print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
-                              self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
+                              #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
                               self.model_accumulated_profits[index_nm][column_nm], '\t',
-                              self.bm_accumulated_profits[index_nm][column_nm], '\t',
-                              self.model_accumulated_profits[index_nm][column_nm] / self.bm_accumulated_profits[index_nm][column_nm] - 1)
+                              self.bm_accumulated_profits[index_nm][column_nm])
                     '''
 
-            Wrap_Util.SavePickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size), obj=self.model_accumulated_profits)
-            Wrap_Util.SavePickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size), obj=self.bm_accumulated_profits)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.model_accumulated_profits)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.bm_accumulated_profits)
+
+            if self.save_datas_excel:
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\factor_signal_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size)
+                                         , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'zscore_data': self.zscore_data, 'factor_signal_data': factor_signal_data
+                                         , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'corr': self.corr})
 
         else:
-            self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size))
-            self.bm_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size))
+            self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
+            self.bm_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
 
         return True
 
@@ -347,6 +386,8 @@ class Folione (object):
             self.model_signals[index_nm] = {}
 
             model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
+
+            check_first_data = False
 
             signal_factors_nm = ""
             simulate_factor_list = []
@@ -370,28 +411,38 @@ class Folione (object):
                 accumulated_model_profit = 1.0
                 accumulated_bm_profit = 1.0
 
-                new_point = self.min_max_check_term - 1
-                average_array = [0] * self.min_max_check_term
+                # Correlation lag 사용여부
+                # FACTOR LAG 사용: 1, 미사용: 0
+                use_factor_lag = 1
+                max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag else 0
+
+                new_point = self.weight_check_term - 1
+                average_array = [0] * self.weight_check_term
                 for idx, row_nm in enumerate(self.zscore_data.index):
                     try:
                         # 과거 moving average 생성 및 시프트
                         # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
-                        if idx >= new_point:
+                        if idx >= (self.min_max_check_term - 1) + max_factor_lag:
                             average_array[:new_point] = average_array[-new_point:]
 
-                            tmp_array = [0] * self.min_max_check_term
+                            average_array[new_point] = 0
                             # 다수 factor를 이용해 모델 예측하는 경우 factor들 min, max 값을 더한 후 평균
                             for factor in simulate_factor_list:
-                                tmp_array += self.corr_direction[index_nm + "_" + factor] * self.zscore_data[factor][idx - new_point:idx + 1]
-                            #average_array[new_point] = ((min(tmp_array) + max(tmp_array)) / 2) / len(simulate_factor_list)
-                            average_array[new_point] = tmp_array.mean() / len(simulate_factor_list)
+                                factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag else 0
+                                average_array[new_point] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
+                            average_array[new_point] /= len(simulate_factor_list)
 
                             # 수익률 계산 시작
                             # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                            if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date and idx - new_point >= self.weight_check_term:
+                            if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+
+                                # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
+                                if check_first_data == False:
+                                    print(self.window_size, row_nm)
+                                    check_first_data = True
 
                                 # 조건 만족으로 BUY 포지션
-                                if average_array[new_point] == max(average_array[-self.weight_check_term:]):
+                                if average_array[new_point] == max(average_array):
                                     accumulated_model_profit *= (self.raw_data[index_nm][idx + 1] / self.raw_data[index_nm][idx])
 
                                     # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
@@ -413,45 +464,97 @@ class Folione (object):
 
     def CalcCorrelation(self):
 
+        # 1단계: target index_factor, rolling month 중 최고 값 사용
+        corr_direction = {}
+        corr_lag = {}
+        corr_max = {}
+
         if self.use_correlation_pickle == False:
             # rolling corr 계산
 
             if self.save_correlations_txt == True:
-                f = open(".\\pickle\\rolling_corr_target_index_%s_window_size_%s.txt" % (self.target_index_nm, self.window_size), 'w')
+                f = open(".\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.txt" % (self.target_index_nm, self.simulation_term_type, self.window_size), 'w')
 
-            for rolling_month in range(10):
+            # 상관관계를 계산할 때 raw data 또는 Z-Score를 사용할 지 선택
+            # Raw Data = 0, Z-Score = 1
+            use_data_type = 0
+            using_data = self.zscore_data if use_data_type else self.raw_data
 
-                self.rolling_correlations[rolling_month] = {}
+            # column_nm_1은 Target Index
+            for column_nm_1 in using_data.columns:
+                if column_nm_1 == self.target_index_nm:
 
-                if self.save_correlations_txt == True:
-                    corr_mtrx_str = "Rolling Month\t" + str(rolling_month) + "\n"
-                    f.write(corr_mtrx_str)
-                    #print("Window Size:\t", str(self.window_size), "\t, \t", corr_mtrx_str)
+                    if self.save_correlations_txt == True:
+                        corr_mtrx_str = "Target Index\t" + str(column_nm_1) + "\n"
+                        # print("Window Size:\t", str(self.window_size), "\t, \t", corr_mtrx_str)
 
-                for column_nm_1 in self.raw_data.columns:
-                    if column_nm_1 == self.target_index_nm:
+                    self.rolling_correlations[column_nm_1] = {}
 
-                        self.rolling_correlations[rolling_month][column_nm_1] = {}
+                    # column_nm_2은 Factor
+                    for column_nm_2 in using_data.columns:
 
-                        corr_mtrx_str = column_nm_1 + "\t"
-                        for column_nm_2 in self.raw_data.columns:
-                            # 문법상 첫번째 구간은 그냥 처리해야 함
-                            if rolling_month:
-                                #self.rolling_correlations[rolling_month][column_nm_1][column_nm_2] = self.raw_data[column_nm_1][rolling_month:].corr(self.raw_data[column_nm_2][:-rolling_month], method='spearman')
-                                self.rolling_correlations[rolling_month][column_nm_1][column_nm_2] = self.raw_data[column_nm_1][-self.window_size:].corr(self.raw_data[column_nm_2][-(self.window_size+rolling_month):-rolling_month], method='spearman')
+                        if self.save_correlations_txt == True:
+                            corr_mtrx_str = corr_mtrx_str + column_nm_2 + "\t"
+
+                        self.rolling_correlations[column_nm_1][column_nm_2] = {}
+
+                        # Correlation을 통해 lag와 상관성(정,역) 확인
+                        max_corr = 0.0
+                        max_lag_idx = 0
+                        # 0 ~ 3개월 까지 Factor와 Target Index에 lag 적용 테스트
+                        max_lag_term = 3
+                        for rolling_month in range(max_lag_term + 1):
+
+                            # 문법상 첫번째 구간(Factor와 Target Index의 lag 없이 동일 시점 적용)은 그냥 처리해야 함
+                            if rolling_month == 0:
+                                # pandas의 correation 계산이 안돼 numpy로 변경, 향후 오류 원인 확인 필요
+                                self.rolling_correlations[column_nm_1][column_nm_2][rolling_month] = numpy.corrcoef(using_data[column_nm_1][-self.window_size:].tolist(), using_data[column_nm_2][-self.window_size:].tolist())[0][1]
                             else:
-                                #self.rolling_correlations[rolling_month][column_nm_1][column_nm_2] = self.raw_data[column_nm_1].corr(self.raw_data[column_nm_2], method='spearman')
-                                self.rolling_correlations[rolling_month][column_nm_1][column_nm_2] = self.raw_data[column_nm_1][-self.window_size:].corr(self.raw_data[column_nm_2][-self.window_size:], method='spearman')
+                                # pandas의 correation 계산이 안돼 numpy로 변경, 향후 오류 원인 확인 필요
+                                self.rolling_correlations[column_nm_1][column_nm_2][rolling_month] = numpy.corrcoef(using_data[column_nm_1][-self.window_size:].tolist(), using_data[column_nm_2][-(self.window_size + rolling_month):-rolling_month].tolist())[0][1]
+
+                            # Correlation을 통해 lag와 상관성(정,역) 확인
+                            if math.isnan(self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]) == False:
+                                if abs(self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]) > abs(max_corr):
+                                    max_corr = self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]
+                                    max_lag_idx = rolling_month
+
+                                    corr_direction[column_nm_1 + "_" + column_nm_2] = 1 if max_corr > 0.0 else -1
+                                    corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
+                                    corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
+                                    # print(column_nm_1 + "_" + column_nm_2, '\t', max_lag_idx, '\t', max_corr)
+
+                            # 1년 단위로 값이 변경되는 Factor의 경우 corr가 nan이 나오는 경우 있어 초기화 시킴
+                            elif math.isnan(self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]) == True and (max_corr == 0.0 and max_lag_idx == 0):
+                                corr_direction[column_nm_1 + "_" + column_nm_2] = 1
+                                corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
+                                corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
 
                             if self.save_correlations_txt == True:
-                                corr_mtrx_str = corr_mtrx_str + str(self.rolling_correlations[rolling_month][column_nm_1][column_nm_2]) + "\t"
+                                corr_mtrx_str = corr_mtrx_str + str(self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]) + "\t"
 
                         if self.save_correlations_txt == True:
                             corr_mtrx_str = corr_mtrx_str + "\n"
-                            f.write(corr_mtrx_str)
+
+                    if self.save_correlations_txt == True:
+                        corr_mtrx_str = corr_mtrx_str + "\n"
+                        f.write(corr_mtrx_str)
+                        #print(corr_mtrx_str)
 
             if self.save_correlations_txt == True:
                 f.close()
+
+            # Corr 정보 생성
+            self.corr = pd.DataFrame(data=[corr_direction, corr_lag, corr_max], index=['direction','lag','max'])
+
+
+            Wrap_Util.SavePickleFile(file='.\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.rolling_correlations)
+
+            if self.save_datas_excel:
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\rolling_corr_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size) , obj_dict={'corr': self.corr})
+
+        else:
+            self.rolling_correlations = Wrap_Util.ReadPickleFile(file='.\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
 
             # Factor와 Target Index의 상관성 확인
             index_nm = self.target_index_nm
@@ -460,18 +563,15 @@ class Folione (object):
                 # Correlation을 통해 lag와 상관성(정,역) 확인
                 max_corr = 0.0
                 max_lag_idx = 0
-                for lag_num in self.rolling_correlations:
-                    if abs(self.rolling_correlations[lag_num][index_nm][column_nm]) > abs(max_corr):
-                        max_corr = self.rolling_correlations[lag_num][index_nm][column_nm]
+                for lag_num in self.rolling_correlations[index_nm][column_nm]:
+                    if abs(self.rolling_correlations[index_nm][column_nm][lag_num]) > abs(max_corr):
+                        max_corr = self.rolling_correlations[index_nm][column_nm][lag_num]
                         max_lag_idx = lag_num
-                self.corr_direction[index_nm + "_" + column_nm] = 1 if max_corr > 0.0 else -1
-                self.corr_lag[index_nm + "_" + column_nm] = max_lag_idx
-                self.corr_max[index_nm + "_" + column_nm] = max_corr
+                corr_direction[index_nm + "_" + column_nm] = 1 if max_corr > 0.0 else -1
+                corr_lag[index_nm + "_" + column_nm] = max_lag_idx
+                corr_max[index_nm + "_" + column_nm] = max_corr
+                # print(index_nm + "_" + column_nm, '\t', max_lag_idx, '\t', max_corr)
 
-                #print(index_nm + "_" + column_nm, '\t', max_lag_idx, '\t', max_corr)
-
-            Wrap_Util.SavePickleFile(file='.\\pickle\\rolling_corr_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size), obj=self.rolling_correlations)
-        else:
-            self.rolling_correlations = Wrap_Util.ReadPickleFile(file='.\\pickle\\rolling_corr_target_index_%s_window_size_%s.pickle' % (self.target_index_nm, self.window_size))
+            self.corr = pd.DataFrame(data=[corr_direction, corr_lag, corr_max],index=['direction', 'lag', 'max'])
 
         return True
