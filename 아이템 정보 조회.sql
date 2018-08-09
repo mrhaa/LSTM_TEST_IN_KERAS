@@ -18,6 +18,7 @@ SELECT a.cd AS 아이템코드, a.nm AS 아이템명, b.element_nm AS 아이템�
    AND e.group_cd = 10005
    AND a.group = g.element_cd
    AND g.group_cd = 10006
+	AND a.use_yn = 1
 
 
   

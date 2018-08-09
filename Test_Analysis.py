@@ -24,10 +24,10 @@ use_datas_pickle = True # 중간 저장된 raw data 사용 여부
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
-use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
-use_factor_selection_pickle = False
-make_simulate_signal = False
+use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
+use_correlation_pickle = True # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
+use_factor_selection_pickle = True
+make_simulate_signal = True
 
 # 병렬처리 사용여부
 use_parallel_process = True
@@ -57,6 +57,7 @@ if __name__ == '__main__':
         simulation_start_date = '2007-01-01'
     elif simulation_term_type == 3:
         simulation_start_date = '2012-01-01'
+    simulation_end_date = '2018-07-31'
 
     # Z-Score 생성의 경우 과거 추가 기간이 필요함.
     # Z-Score의 최대 기간과 동일 (월 단위)
@@ -94,7 +95,7 @@ if __name__ == '__main__':
         # drop_basis_from: '2007-01-31', drop_basis_to: '가장 최근 말일'는 가장 유효한 factor를 많이 사용할 수 있는 기간을 찾아 적용하였음.
         #pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2001-01-01', drop_basis_to='2018-03-31')
         print("simulation_start_date: ", simulation_start_date, str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)))
-        pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)), drop_basis_to='2018-03-31')
+        pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)), drop_basis_to=simulation_end_date)
         Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s.xlsx' % (simulation_term_type), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
         
         Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s.pickle' % (simulation_term_type), obj=pivoted_sampled_datas)
@@ -109,6 +110,7 @@ if __name__ == '__main__':
         # Correlation이 불안정함(+, - 반복)
         window_sizes = {"from": 24, "to": raw_data_spare_term}
         profit_calc_start_date = simulation_start_date
+        profit_calc_end_date = simulation_end_date
         min_max_check_term = 2
         weight_check_term = 4
 
@@ -127,10 +129,10 @@ if __name__ == '__main__':
         for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
             for target_index_nm in target_index_nm_list:
                 folione = Folione(pivoted_sampled_datas_last_pure_version, window_size, simulation_term_type
-                                  , profit_calc_start_date, min_max_check_term, weight_check_term, target_index_nm
+                                  , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, target_index_nm
                                   , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
                                   , make_simulate_signal
-                                  , save_datas_excel, save_correlations_txt)
+                                  , save_datas_excel, save_correlations_txt, use_parallel_process)
 
                 if use_parallel_process == True:
                     # 신규 프로세스 생성
@@ -141,7 +143,8 @@ if __name__ == '__main__':
                     folione.MakeZScore()
                     folione.CalcCorrelation()
                     folione.SelectFactor()
-                    folione.MakeSignal()
+                    #folione.MakeSignal()
+                    folione.MakeSignal_AllCombis()
 
 
     # Test

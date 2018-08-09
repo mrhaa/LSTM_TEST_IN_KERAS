@@ -6,6 +6,7 @@ import pandas as pd
 import xlsxwriter
 import openpyxl
 from xlutils.copy import copy as xl_copy
+import math
 
 
 item_dic = {"S&P500":1
@@ -484,7 +485,8 @@ for idx, column in enumerate(all_columns):
             else:
                 
                 # Null 셀이면 다음 item으로 패스
-                if math.isnan(values[idx].value) == True:
+                if values[idx].value == None or math.isnan(values[idx].value) == True:
+                    print(item_cd, item_nm, ticker, str(dates[idx].value)[:10], values[idx].value)
                     break
 
                 #print(str(dates[idx].value)[:10], "\t", item_cd, "\t", values[idx].value, "\t", group_cd)
