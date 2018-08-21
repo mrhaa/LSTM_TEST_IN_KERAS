@@ -3,12 +3,14 @@
 import win32com.client
 from Test_MariaDB import WrapDB
 import pandas as pd
+import numpy as np
 import copy
 from datetime import datetime
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 import multiprocessing as mp
 import time
+import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -30,7 +32,7 @@ use_factor_selection_pickle = True
 make_simulate_signal = True
 
 # 병렬처리 사용여부
-use_parallel_process = True
+use_parallel_process = False
 
 # Debug 데이터 생성 여부
 save_datas_excel = True
@@ -111,7 +113,7 @@ if __name__ == '__main__':
         window_sizes = {"from": 24, "to": raw_data_spare_term}
         profit_calc_start_date = simulation_start_date
         profit_calc_end_date = simulation_end_date
-        min_max_check_term = 2
+        min_max_check_term = 2 # 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
         weight_check_term = 4
 
         # 장기 시뮬레이션
@@ -119,7 +121,8 @@ if __name__ == '__main__':
             target_index_nm_list = ["KOSPI", "S&P500"]
         # 중기, 단기 시뮬레이션
         else:
-            target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합"]
+            target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
+            #target_index_nm_list = ["S&P500"]
         '''
         # Test
         target_index_nm_list = ["S&P500"]
@@ -143,8 +146,10 @@ if __name__ == '__main__':
                     folione.MakeZScore()
                     folione.CalcCorrelation()
                     folione.SelectFactor()
-                    #folione.MakeSignal()
-                    folione.MakeSignal_AllCombis()
+                    if 0:
+                        folione.MakeSignal()
+                    else:
+                        folione.MakeSignal_AllCombis()
 
 
     # Test
@@ -154,19 +159,49 @@ if __name__ == '__main__':
 
     if do_pca == True:
         # 정규화
-        pivoted_sampled_datas = pd.DataFrame(StandardScaler().fit_transform(pivoted_sampled_datas))
+        if 0:
+            pivoted_sampled_std_datas = pd.DataFrame(StandardScaler().fit_transform(pivoted_sampled_datas.values))
+            pivoted_sampled_std_datas.columns = pivoted_sampled_datas.columns
+            pivoted_sampled_std_datas.index = pivoted_sampled_datas.index
+        else:
+            pivoted_sampled_std_datas = copy.deepcopy(pivoted_sampled_datas)
+
+            if 0:
+                for column_nm in pivoted_sampled_datas.columns:
+                    if column_nm not in ("KOSPI", "S&P500"):
+                        pivoted_sampled_std_datas.drop(columns=column_nm, inplace=True)
+
         #pivoted_sampled_datas_T = pivoted_sampled_datas.transpose()
         #print (list(pivoted_sampled_datas))
         #print (pivoted_sampled_datas)
 
-        pca = PCA(n_components=pivoted_sampled_datas.shape[1])
-        #pca = PCA(n_components=2)
+        if 1:
+            pca = PCA(svd_solver='full', n_components=pivoted_sampled_std_datas.shape[1])
+        else:
+            pca = PCA(n_components=10)
         #principalComponents = pca.fit_transform(pivoted_sampled_datas)
-        pca.fit(pivoted_sampled_datas)
-        principalComponents = pca.transform(pivoted_sampled_datas)
+        pca.fit(pivoted_sampled_std_datas.values)
+        principalComponents = pd.DataFrame(data=pca.transform(pivoted_sampled_std_datas.values))
+        #principalComponents.index = pivoted_sampled_datas.index
+        #principalComponents["S&P500"] = pca.transform(pivoted_sampled_std_datas["S&P500"].values)
+        '''
+        a = copy.deepcopy(pivoted_sampled_datas)
+        for column_nm in a.columns:
+            if column_nm != "S&P500":
+                for row_nm in a.index:
+                    a[column_nm][row_nm] = 0
+        b = pd.DataFrame(data=pca.transform(a.values))
+        '''
+        w, U = np.linalg.eig(pca.get_covariance())
         #
-        #print (principalDf)
+        if 0:
+            plt.scatter(pivoted_sampled_std_datas["KOSPI"].values, pivoted_sampled_std_datas["S&P500"].values, s=100, c='r')
+            plt.scatter(principalComponents[0].values, principalComponents[1].values, s=100, c='b')
+            plt.xlim(-3000, 3000)
+            plt.ylim(-3000, 3000)
+            plt.show()
 
+        print(principalComponents)
 
     if do_figure == True:
         principalDf = pd.DataFrame(data=principalComponents, columns=['principal component 1', 'principal component 2'])
