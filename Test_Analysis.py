@@ -21,18 +21,18 @@ from Wrap_Folione import Folione
 import Wrap_Folione as wf
 
 # Folione 모델 외부(전단계)
-use_datas_pickle = True # 중간 저장된 raw data 사용 여부
+use_datas_pickle = False # 중간 저장된 raw data 사용 여부
 
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
-use_correlation_pickle = True # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
-use_factor_selection_pickle = True
+use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
+use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
+use_factor_selection_pickle = False
 make_simulate_signal = True
 
 # 병렬처리 사용여부
-use_parallel_process = False
+use_parallel_process = True
 
 # Debug 데이터 생성 여부
 save_datas_excel = True
@@ -128,6 +128,8 @@ if __name__ == '__main__':
         target_index_nm_list = ["S&P500"]
         '''
 
+        max_proces_num = 7
+        jobs = []
         pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
         for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
             for target_index_nm in target_index_nm_list:
@@ -140,8 +142,16 @@ if __name__ == '__main__':
                 if use_parallel_process == True:
                     # 신규 프로세스 생성
                     p = mp.Process(target=wf.FolioneStart, args=(folione,))
+                    jobs.append(p)
                     p.start()
-                    time.sleep(1)
+                    
+                    # 최대 Process 갯수를 넘으면 대기
+                    while len(jobs) >= max_proces_num:
+                        jobs = [job for job in jobs if job.is_alive()]
+                        print("%s Process Left" % len(jobs))
+                        time.sleep(10)
+
+                    time.sleep(10)
                 else:
                     folione.MakeZScore()
                     folione.CalcCorrelation()
@@ -150,6 +160,16 @@ if __name__ == '__main__':
                         folione.MakeSignal()
                     else:
                         folione.MakeSignal_AllCombis()
+
+
+        # Iterate through the list of jobs and remove one that are finished, checking every second.
+        count_loop = 0
+        while len(jobs) > 0:
+            jobs = [job for job in jobs if job.is_alive()]
+            print("%s: %s Process Left" % (count_loop, len(jobs)))
+            time.sleep(10)
+
+            count_loop += 1
 
 
     # Test
