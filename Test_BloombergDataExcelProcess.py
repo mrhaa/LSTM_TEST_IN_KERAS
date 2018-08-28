@@ -432,7 +432,7 @@ all_columns = ws.columns
 
 # Wrap운용팀 DB Connect
 db = WrapDB()
-db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="maria")
+db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
 
 # 엑셀 load 된 데이터 처리 
 dates = None

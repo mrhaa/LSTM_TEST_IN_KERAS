@@ -32,11 +32,15 @@ use_factor_selection_pickle = False
 make_simulate_signal = True
 
 # 병렬처리 사용여부
-use_parallel_process = True
+use_parallel_process = False
 
 # Debug 데이터 생성 여부
 save_datas_excel = True
 save_correlations_txt = True
+
+# Signal DB 저장 여부
+save_signal_process_db = True
+save_signal_last_db = True
 
 # 데이터 분석
 do_pca = False
@@ -60,6 +64,7 @@ if __name__ == '__main__':
     elif simulation_term_type == 3:
         simulation_start_date = '2012-01-01'
     simulation_end_date = '2018-07-31'
+    #simulation_end_date = '2018-06-30'
 
     # Z-Score 생성의 경우 과거 추가 기간이 필요함.
     # Z-Score의 최대 기간과 동일 (월 단위)
@@ -68,7 +73,7 @@ if __name__ == '__main__':
     if use_datas_pickle == False:
         # Wrap운용팀 DB Connect
         db = WrapDB()
-        db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="maria")
+        db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
 
         # 데이터 전처리 instance 생성
         preprocess = Preprocess()
@@ -111,6 +116,7 @@ if __name__ == '__main__':
         # 실험적으로 24개월보다 기간이 Window기간이 짧은 경우 Z-Score의 통계적 신뢰성이 떨어진다.
         # Correlation이 불안정함(+, - 반복)
         window_sizes = {"from": 24, "to": raw_data_spare_term}
+        #window_sizes = {"from": raw_data_spare_term, "to": raw_data_spare_term}
         profit_calc_start_date = simulation_start_date
         profit_calc_end_date = simulation_end_date
         min_max_check_term = 2 # 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
@@ -122,7 +128,7 @@ if __name__ == '__main__':
         # 중기, 단기 시뮬레이션
         else:
             target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
-            #target_index_nm_list = ["S&P500"]
+            #target_index_nm_list = ["금"]
         '''
         # Test
         target_index_nm_list = ["S&P500"]
@@ -137,7 +143,7 @@ if __name__ == '__main__':
                                   , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, target_index_nm
                                   , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
                                   , make_simulate_signal
-                                  , save_datas_excel, save_correlations_txt, use_parallel_process)
+                                  , save_datas_excel, save_correlations_txt, save_signal_process_db, save_signal_last_db, use_parallel_process)
 
                 if use_parallel_process == True:
                     # 신규 프로세스 생성

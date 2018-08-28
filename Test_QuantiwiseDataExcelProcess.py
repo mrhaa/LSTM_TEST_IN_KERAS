@@ -10,7 +10,7 @@ import math
 
 item_dic = {
 "삼천당제약":1
-,"제일홀딩스":2
+,"하림지주":2
 ,"포스코켐텍":3
 ,"동진쎄미켐":4
 ,"서부T&D":5
@@ -27,7 +27,7 @@ item_dic = {
 ,"코웰패션":16
 ,"파라다이스":17
 ,"KG이니시스":18
-,"CJ오쇼핑":19
+,"CJ ENM":19
 ,"이지바이오":20
 ,"JYP Ent.":21
 ,"제이콘텐트리":22
@@ -110,7 +110,7 @@ item_dic = {
 ,"대웅":99
 ,"삼양식품":100
 ,"태광산업":101
-,"한일시멘트":102
+,"한일홀딩스":102
 ,"쌍용양회":103
 ,"유안타증권":104
 ,"대한항공":105
@@ -144,7 +144,7 @@ item_dic = {
 ,"LS":133
 ,"녹십자":134
 ,"GS건설":135
-,"현대시멘트":136
+,"한일현대시멘트":136
 ,"삼성SDI":137
 ,"인스코비":138
 ,"대한유화":139
@@ -331,7 +331,7 @@ from openpyxl import load_workbook
 start_time = timeit.default_timer()
 if 0:
     wb = load_workbook(filename='국내주식_MarketData1_.xlsx', read_only=False, data_only=False)
-    wb_list = ['주식_시가','주식_종가','주식_거래량','주식_시가총액']
+    wb_list = ['주식_시가','주식_종가','주식_고가','주식_저가','주식_거래량','주식_시가총액']
 else:
     wb = load_workbook(filename='국내주식_MarketData2_.xlsx', read_only=False, data_only=False)
     wb_list = ['주식_기관순매수','주식_외인순매수']
@@ -346,7 +346,7 @@ for wb_nm in wb_list:
 
     # Wrap운용팀 DB Connect
     db = WrapDB()
-    db.connet(host="127.0.0.1", port=3306, database="WrapDB_2", user="root", password="maria")
+    db.connet(host="127.0.0.1", port=3306, database="WrapDB_2", user="root", password="ryumaria")
 
     # 엑셀 load 된 데이터 처리
     dates = None
@@ -375,8 +375,8 @@ for wb_nm in wb_list:
                 if row_idx == 8:
                     
                     # 데이터 존재하지 않는 컬럼을 리드하려고 하는 경우
-                    if math.isnan(values[row_idx].value) == True:
-                        break
+                    #if math.isnan(values[row_idx].value) == True:
+                    #    break
 
                     item_cd = item_dic[values[row_idx].value]
                     item_nm = values[row_idx].value
@@ -386,7 +386,7 @@ for wb_nm in wb_list:
                 elif row_idx >= 14:
 
                     # Null 셀이면 다음 item으로 패스
-                    if math.isnan(values[row_idx].value) == True:
+                    if values[row_idx].value == None or math.isnan(values[row_idx].value) == True:
                         continue
 
                     #print(str(dates[idx].value)[:10], "\t", item_cd, "\t", values[idx].value, "\t", group_cd)

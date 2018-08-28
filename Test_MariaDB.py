@@ -3,6 +3,8 @@
 import mysql.connector
 from mysql.connector import errorcode
 import pandas as pd
+import time
+import datetime
 
 # DB 접속 정보를 dict type으로 준비한다.
 config = {
@@ -10,10 +12,11 @@ config = {
     "port": 3306,
     "database": "WrapDB_1",
     "user": "root",
-    "password": "maria"
+    "password": "ryumaria"
 
 }
 
+ts = time.time()
 
 class WrapDB(object):
 
@@ -200,6 +203,10 @@ class WrapDB(object):
             sql = "INSERT INTO value (date, item_cd, open) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE open=%s"
         elif type == '주식_종가':
             sql = "INSERT INTO value (date, item_cd, close) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE close=%s"
+        elif type == '주식_고가':
+            sql = "INSERT INTO value (date, item_cd, high) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE high=%s"
+        elif type == '주식_저가':
+            sql = "INSERT INTO value (date, item_cd, low) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE low=%s"
         elif type == '주식_거래량':
             sql = "INSERT INTO value (date, item_cd, volume) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE volume=%s"
         elif type == '주식_시가총액':
@@ -211,6 +218,56 @@ class WrapDB(object):
         #print (sql)
         sql_arg = (date, item_cd, value, value)
 
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        # DB 반영
+        self.conn.commit();
+
+        return 1
+
+    def get_factors_nm_cd(self):
+        sql = "SELECT nm, cd" \
+              "  FROM item"
+        sql_arg = None
+
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        data = self.cursor.fetchall()
+
+        tmp_df = pd.DataFrame(data)
+        nm_cd_map = {}
+        for idx in tmp_df.index:
+            nm_cd_map[tmp_df[0].values[idx]] = tmp_df[1].values[idx]
+
+        return nm_cd_map
+
+    def insert_folione_signal(self, table_nm, date_info, target_cd, factor_info, signal_cd, etc):
+
+        # 최종 update 시간
+        timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Factor의 갯수가 1~10개로 유동적임
+        sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
+        for idx, factor_cd in enumerate(factor_info['factors_cd']):
+            sql = sql + ", factor_cd" + str(idx)
+        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, update_tm) "
+        sql = sql + "VALUES (%s, %s, %s, %s, %s, %s"
+        for idx, factor_cd in enumerate(factor_info['factors_cd']):
+            sql = sql + ", %s"
+        sql = sql + ", %s, %s, %s, %s, %s)"
+        sql = sql +  "ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=%s"
+
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
+        for idx, factor_cd in enumerate(factor_info['factors_cd']):
+            sql_arg += [int(factor_info['factors_cd'][idx])]
+        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], timestamp]
+        sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit'], timestamp]
+        sql_arg = tuple(sql_arg)
+
+        #print(sql)
+        #print(sql_arg)
         # 수행
         self.cursor.execute(sql, sql_arg)
 

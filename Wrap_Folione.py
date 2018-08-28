@@ -10,6 +10,8 @@ import math
 import numpy
 
 import Wrap_Util
+from Test_MariaDB import WrapDB
+
 
 
 def FolioneStart(obj):
@@ -172,7 +174,7 @@ class Folione (object):
                  , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, target_index_nm
                  , use_window_size_pickle=False, use_factor_selection_pickle=False, use_correlation_pickle=False
                  , make_folione_signal = False
-                 , save_datas_excel=False, save_correlations_txt=False, use_parallel_process=False):
+                 , save_datas_excel=False, save_correlations_txt=False, save_signal_process_db=False, save_signal_last_db=True, use_parallel_process=False):
 
         # Z-Score 생성하기 위한 준비 데이터
         # row: 날짜, column: factor
@@ -216,6 +218,8 @@ class Folione (object):
         # Debug용 데이터 저장 여부
         self.save_datas_excel = copy.deepcopy(save_datas_excel)
         self.save_correlations_txt = copy.deepcopy(save_correlations_txt)
+        self.save_signal_process_db = copy.deepcopy(save_signal_process_db)
+        self.save_signal_last_db = copy.deepcopy(save_signal_last_db)
 
         self.use_parallel_process = copy.deepcopy(use_parallel_process)
 
@@ -583,6 +587,11 @@ class Folione (object):
 
         if self.make_folione_signal == True:
 
+            # Wrap운용팀 DB Connect
+            db = WrapDB()
+            db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
+            factors_nm_cd_map = db.get_factors_nm_cd()
+
             if self.save_datas_excel:
                 model_signal_data = pd.DataFrame(index=self.zscore_data.index)
                 average_zscore_data = copy.deepcopy(model_signal_data)
@@ -603,7 +612,7 @@ class Folione (object):
                 print(idx_str)
             
             # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
-            max_simulate_factor_num = 10
+            max_signal_factors_num = 10
             index_nm = self.target_index_nm
 
             # 1단계. 예측 index별로 container 생성
@@ -612,12 +621,15 @@ class Folione (object):
             model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
             
             # combination factor 갯수
-            for ele_count in range(1, max_simulate_factor_num+1):
+            for ele_count in range(1, max_signal_factors_num+1):
 
                 combis = list(itertools.combinations(list(model_profitable_factors_sorted)[:10], ele_count))
 
                 # 특정 갯수로 만들어질 수 있는 Combination 리스트
                 for combi in combis:
+
+                    # 동일 리스트의 경우 순서에 의한 문제 제거(DB Key 에러 문제)
+                    combi = sorted(combi)
 
                     # 수익률 관련 메타 정보 저장
                     check_first_data = False
@@ -625,13 +637,13 @@ class Folione (object):
                     profit_end_date = '9999-99-99'
 
                     signal_factors_nm = ""
-                    simulate_factor_list = []
+                    signal_factors_list = []
                     for profitable_factor in combi:
-                        if len(simulate_factor_list):
+                        if len(signal_factors_list):
                             signal_factors_nm = signal_factors_nm + " & " + profitable_factor
                         else:
                             signal_factors_nm = profitable_factor
-                        simulate_factor_list.append(profitable_factor)
+                        signal_factors_list.append(profitable_factor)
 
                     # 2단계. 예측 index & factor combination별로 container 생성
                     self.model_signals[index_nm][signal_factors_nm] = {}
@@ -663,7 +675,7 @@ class Folione (object):
 
                                 average_array[-1] = 0
                                 # 다수 factor를 이용해 모델 예측하는 경우 factor들의 값을 더한 후 평균
-                                for factor in simulate_factor_list:
+                                for factor in signal_factors_list:
                                     factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag else 0
                                     # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                                     if 0:
@@ -673,7 +685,7 @@ class Folione (object):
                                     # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
                                     else:
                                         average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
-                                average_array[-1] /= len(simulate_factor_list)
+                                average_array[-1] /= len(signal_factors_list)
 
                                 # 수익률 계산 시작
                                 # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
@@ -700,6 +712,7 @@ class Folione (object):
                                             model_signal_data[signal_factors_nm][row_nm] = 1
                                     else:
                                         self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
+
                                     profit_end_date = row_nm
 
                                     if self.save_datas_excel:
@@ -710,9 +723,35 @@ class Folione (object):
                                     if self.window_size + idx < len(self.raw_data.index):
                                         accumulated_bm_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
 
+                                    # 시그널 DB 저장
+                                    if self.save_signal_process_db == True or (self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date)):
+                                        date_info = {'start_dt': self.profit_calc_start_date,'end_dt': self.profit_calc_end_date, 'curr_dt': row_nm}
+                                        target_cd = factors_nm_cd_map[index_nm]
+                                        factor_info = {'factors_num': len(signal_factors_list),'multi_factors_nm': signal_factors_nm,'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
+                                        signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
+                                        etc = {'window_size': self.window_size, 'model_profit': accumulated_model_profit, 'bm_profit': accumulated_bm_profit}
+
+                                        # 발생하는 모든 과정의 Signal을 저장
+                                        if self.save_signal_process_db == True:
+                                            table_nm = 'result'
+                                            db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
+
+                                        # 마지막 Signal만 저장
+                                        if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
+                                            table_nm = 'result_last'
+                                            db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
+
+                                    # Scenario End Date, Exit
+                                    if row_nm == self.profit_calc_end_date:
+                                        break
+
                         except IndexError:
                             print("IndexError:\t", index_nm, '\t', signal_factors_nm, '\t', row_nm)
                             pass
+                        except Exception as inst:
+                            print(type(inst))  # the exception instance
+                            print(inst.args)  # arguments stored in .args
+                            print(inst)
 
                     # 유효 factor들의 combination을 이용하여
                     if accumulated_model_profit > accumulated_bm_profit:
@@ -728,12 +767,12 @@ class Folione (object):
                         result_data[signal_factors_nm]["누적 BM 수익률(연환산)"] = accumulated_bm_profit / profit_period * 365
                         result_data[signal_factors_nm]["누적 모델 수익률"] = accumulated_model_profit
                         result_data[signal_factors_nm]["누적 BM 수익률"] = accumulated_bm_profit
-                        result_data[signal_factors_nm]["펙터(#)"] = len(simulate_factor_list)
+                        result_data[signal_factors_nm]["펙터(#)"] = len(signal_factors_list)
                         result_data[signal_factors_nm]["펙터"] = signal_factors_nm
 
                         signal_str = str(self.window_size) + '\t' + index_nm + '\t' + profit_start_date + '\t' + profit_end_date + '\t' + str(profit_period) + '\t' + self.model_signals[index_nm][signal_factors_nm][profit_end_date] + '\t' \
                                      + str(accumulated_model_profit / profit_period * 365) + '\t' + str(accumulated_bm_profit / profit_period * 365) + '\t' \
-                                     + str(accumulated_model_profit) + '\t' + str(accumulated_bm_profit) + '\t' + str(len(simulate_factor_list))  + '\t' + signal_factors_nm
+                                     + str(accumulated_model_profit) + '\t' + str(accumulated_bm_profit) + '\t' + str(len(signal_factors_list))  + '\t' + signal_factors_nm
 
                         # 병렬처리 아닌 경우 로그 프린트
                         if self.use_parallel_process == False:
@@ -748,6 +787,9 @@ class Folione (object):
                 Wrap_Util.SaveExcelFiles(file='.\\pickle\\model_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size)
                                          , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'model_signal_data': model_signal_data
                                          , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
+
+            # Wrap운용팀 DB Disconnect
+            db.disconnect()
 
         return True
 

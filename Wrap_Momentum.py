@@ -17,7 +17,7 @@ if __name__ == '__main__':
 
     # Wrap운용팀 DB Connect
     db = WrapDB()
-    db.connet(host="127.0.0.1", port=3306, database="WrapDB_2", user="root", password="maria")
+    db.connet(host="127.0.0.1", port=3306, database="WrapDB_2", user="root", password="ryumaria")
     data_infos = db.get_data_info()
 
     data = db.get_quantiwise_datas(data_infos[0])
