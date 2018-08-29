@@ -545,7 +545,7 @@ class Folione (object):
                         pass
 
                 # 유효 factor들의 combination을 이용하여
-                if accumulated_model_profit > accumulated_bm_profit:
+                if self.save_datas_excel and accumulated_model_profit > accumulated_bm_profit:
                     profit_period = (datetime.strptime(profit_end_date, '%Y-%m-%d').date() - datetime.strptime(profit_start_date, '%Y-%m-%d').date()).days
 
                     result_data[signal_factors_nm]["Window Size"] = self.window_size
@@ -754,7 +754,7 @@ class Folione (object):
                             print(inst)
 
                     # 유효 factor들의 combination을 이용하여
-                    if accumulated_model_profit > accumulated_bm_profit:
+                    if self.save_datas_excel and accumulated_model_profit > accumulated_bm_profit:
                         profit_period = (datetime.strptime(profit_end_date, '%Y-%m-%d').date() - datetime.strptime(profit_start_date, '%Y-%m-%d').date()).days
 
                         result_data[signal_factors_nm]["Window Size"] = self.window_size
