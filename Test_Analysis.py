@@ -35,8 +35,8 @@ make_simulate_signal = True
 use_parallel_process = True
 
 # Debug 데이터 생성 여부
-save_datas_excel = True
-save_correlations_txt = True
+save_datas_excel = False
+save_correlations_txt = False
 
 # Signal DB 저장 여부
 save_signal_process_db = False
@@ -51,8 +51,8 @@ do_figure = False
 
 if __name__ == '__main__':
 
-    #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2018-07-31']
+    back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
+    #back_test_dates = ['2018-07-31']
     for back_test_date in back_test_dates:
         # Simulation 기간 타입
         # 1: 장기, 2: 중기, 3: 단기
@@ -131,13 +131,13 @@ if __name__ == '__main__':
             # 중기, 단기 시뮬레이션
             else:
                 target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
-                #target_index_nm_list = ["금"]
-            '''
-            # Test
-            target_index_nm_list = ["S&P500"]
-            '''
 
-            max_proces_num = 7
+
+            # Test
+            #target_index_nm_list = ["S&P500"]
+
+
+            max_proces_num = 6
             jobs = []
             pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
             for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):

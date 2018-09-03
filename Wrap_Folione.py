@@ -615,6 +615,17 @@ class Folione (object):
             max_signal_factors_num = 10
             index_nm = self.target_index_nm
 
+
+            # 결과 DB 저장시 기존 생성 내용 삭제
+            if self.save_signal_process_db == True:
+                table_nm = "result"
+                db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size)
+
+            if self.save_signal_last_db == True:
+                table_nm = "result_last"
+                db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size)
+                
+
             # 1단계. 예측 index별로 container 생성
             self.model_signals[index_nm] = {}
 

@@ -90,6 +90,7 @@ class WrapDB(object):
               "  FROM item as a" \
               "  LEFT JOIN value AS b" \
               "    ON a.cd = b.item_cd" \
+              " WHERE a.use_yn = 1" \
               " GROUP BY a.cd, a.nm" \
               " HAVING COUNT(*) > 1"
         sql_arg = None
@@ -186,8 +187,12 @@ class WrapDB(object):
         return True
 
     def insert_bloomberg_value(self, item_cd, date, value):
-        sql = "INSERT INTO value (date, item_cd, value) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE value=%s"
-        sql_arg = (date, item_cd, value, value)
+
+        # 최종 update 시간
+        timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+        sql = "INSERT INTO value (date, item_cd, value, create_tm, update_tm) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE value=%s, update_tm=%s"
+        sql_arg = (date, item_cd, value, timestamp, timestamp, value, timestamp)
 
         # 수행
         self.cursor.execute(sql, sql_arg)
@@ -198,25 +203,37 @@ class WrapDB(object):
         return 1
 
     def insert_quantiwise_value(self, item_cd, date, value, type):
+
+        # 최종 update 시간
+        timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
         # '주식_시가','주식_종가','주식_거래량','주식_시가총액'
         if type == '주식_시가':
-            sql = "INSERT INTO value (date, item_cd, open) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE open=%s"
+            sql = "INSERT INTO value (date, item_cd, open, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE open=%s, update_tm=%s"
         elif type == '주식_종가':
-            sql = "INSERT INTO value (date, item_cd, close) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE close=%s"
+            sql = "INSERT INTO value (date, item_cd, close, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE close=%s, update_tm=%s"
         elif type == '주식_고가':
-            sql = "INSERT INTO value (date, item_cd, high) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE high=%s"
+            sql = "INSERT INTO value (date, item_cd, high, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE high=%s, update_tm=%s"
         elif type == '주식_저가':
-            sql = "INSERT INTO value (date, item_cd, low) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE low=%s"
+            sql = "INSERT INTO value (date, item_cd, low, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE low=%s, update_tm=%s"
         elif type == '주식_거래량':
-            sql = "INSERT INTO value (date, item_cd, volume) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE volume=%s"
+            sql = "INSERT INTO value (date, item_cd, volume, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE volume=%s, update_tm=%s"
         elif type == '주식_시가총액':
-            sql = "INSERT INTO value (date, item_cd, market_capitalization) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE market_capitalization=%s"
-        elif type == '주식_기관순매수':
-            sql = "INSERT INTO value (date, item_cd, company_net_buy) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE company_net_buy=%s"
-        elif type == '주식_외인순매수':
-            sql = "INSERT INTO value (date, item_cd, foreigner_net_buy) VALUES (%s, %s, %s) ON DUPLICATE KEY UPDATE foreigner_net_buy=%s"
+            sql = "INSERT INTO value (date, item_cd, market_capitalization, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE market_capitalization=%s, update_tm=%s"
+        elif type == '주식_기관순매수' and value > 0.0:
+            sql = "INSERT INTO value (date, item_cd, company_net_buy, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE company_net_buy=%s, update_tm=%s"
+        elif type == '주식_외인순매수' and value > 0.0:
+            sql = "INSERT INTO value (date, item_cd, foreigner_net_buy, create_tm, update_tm)" \
+                  "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE foreigner_net_buy=%s, update_tm=%s"
         #print (sql)
-        sql_arg = (date, item_cd, value, value)
+        sql_arg = (date, item_cd, value, timestamp, timestamp, value, timestamp)
 
         # 수행
         self.cursor.execute(sql, sql_arg)
@@ -270,6 +287,22 @@ class WrapDB(object):
         #print(sql_arg)
         # 수행
         self.cursor.execute(sql, sql_arg)
+
+        # DB 반영
+        self.conn.commit();
+
+        return 1
+
+    def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size):
+        sql = "DELETE " \
+              "FROM %s " \
+              "WHERE target_cd = %s" \
+              "  AND start_dt = '%s'" \
+              "  AND end_dt = '%s'" \
+              "  AND window_size = %s" % (table_nm, int(target_cd), start_dt, end_dt, window_size)
+
+        # 수행
+        self.cursor.execute(sql)
 
         # DB 반영
         self.conn.commit();
