@@ -275,14 +275,17 @@ class Folione (object):
                         #self.zscore_data[column_nm][row_nm] = 0.0
                         self.zscore_data[column_nm][row_nm] = self.zscore_data[column_nm][idx-1]
 
-            Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.zscore_data)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                          % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.zscore_data)
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='.\\pickle\\save_datas_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size)
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\save_datas_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
+                                              % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
                                          , obj_dict={'raw_data': self.raw_data, 'mean_data': self.mean_data, 'std_data': self.std_data, 'zscore_data': self.zscore_data})
 
         else:
-            self.zscore_data = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
+            self.zscore_data = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                                             % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))
 
         return True
 
@@ -403,17 +406,22 @@ class Folione (object):
                               self.bm_accumulated_profits[index_nm][column_nm])
 
 
-            Wrap_Util.SavePickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.model_accumulated_profits)
-            Wrap_Util.SavePickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.bm_accumulated_profits)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                          % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.model_accumulated_profits)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                          % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.bm_accumulated_profits)
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='.\\pickle\\factor_signal_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size)
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\factor_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
+                                          % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
                                          , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'zscore_data': self.zscore_data, 'factor_signal_data': factor_signal_data
                                          , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'corr': self.corr})
 
         else:
-            self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
-            self.bm_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
+            self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                                                           % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))
+            self.bm_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\bm_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                                                        % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))
 
         return True
 
@@ -588,7 +596,8 @@ class Folione (object):
             #f.close()
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='.\\pickle\\model_signal_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size)
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\model_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
+                                              % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
                                          , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'factor_signal_data': model_signal_data
                                          , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
 
@@ -812,7 +821,8 @@ class Folione (object):
             #f.close()
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='.\\pickle\\model_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size)
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\model_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
+                                              % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
                                          , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'model_signal_data': model_signal_data
                                          , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
 
@@ -908,13 +918,16 @@ class Folione (object):
             self.corr = pd.DataFrame(data=[corr_direction, corr_lag, corr_max], index=['direction','lag','max'])
 
 
-            Wrap_Util.SavePickleFile(file='.\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size), obj=self.rolling_correlations)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                          % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.rolling_correlations)
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='.\\pickle\\rolling_corr_excel_target_index_%s_simulation_term_type_%s_window_size_%s.xlsx' % (self.target_index_nm, self.simulation_term_type, self.window_size) , obj_dict={'corr': self.corr})
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\rolling_corr_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
+                                              % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size) , obj_dict={'corr': self.corr})
 
         else:
-            self.rolling_correlations = Wrap_Util.ReadPickleFile(file='.\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.pickle' % (self.target_index_nm, self.simulation_term_type, self.window_size))
+            self.rolling_correlations = Wrap_Util.ReadPickleFile(file='.\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
+                                                                      % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))
 
             # Factor와 Target Index의 상관성 확인
             index_nm = self.target_index_nm

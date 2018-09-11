@@ -329,7 +329,7 @@ from openpyxl import load_workbook
 
 
 start_time = timeit.default_timer()
-if 0:
+if 1:
     wb = load_workbook(filename='국내주식_MarketData1_.xlsx', read_only=False, data_only=False)
     wb_list = ['주식_시가','주식_종가','주식_고가','주식_저가','주식_거래량','주식_시가총액']
 else:

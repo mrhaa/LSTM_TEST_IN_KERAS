@@ -35,8 +35,8 @@ make_simulate_signal = True
 use_parallel_process = True
 
 # Debug 데이터 생성 여부
-save_datas_excel = False
-save_correlations_txt = False
+save_datas_excel = True
+save_correlations_txt = True
 
 # Signal DB 저장 여부
 save_signal_process_db = False
@@ -51,15 +51,15 @@ do_figure = False
 
 if __name__ == '__main__':
 
-    back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    #back_test_dates = ['2018-07-31']
+    #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
+    back_test_dates = ['2018-08-31']
     for back_test_date in back_test_dates:
         # Simulation 기간 타입
         # 1: 장기, 2: 중기, 3: 단기
         # 장기: 2001-01-01 부터 (IT 버블 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(223 Factors)
         # 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
         # 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
-        simulation_term_type = 2
+        simulation_term_type = 3
         if simulation_term_type == 1:
             simulation_start_date = '2001-01-01'
         elif  simulation_term_type == 2:
@@ -106,11 +106,11 @@ if __name__ == '__main__':
             #pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2001-01-01', drop_basis_to='2018-03-31')
             print("simulation_start_date: ", simulation_start_date, str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)))
             pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)), drop_basis_to=simulation_end_date)
-            Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s.xlsx' % (simulation_term_type), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
+            Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx' % (simulation_term_type, back_test_date), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
 
-            Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s.pickle' % (simulation_term_type), obj=pivoted_sampled_datas)
+            Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
         else:
-            pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s.pickle' % (simulation_term_type))
+            pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date))
 
 
         if do_simulation == True:
@@ -127,17 +127,17 @@ if __name__ == '__main__':
 
             # 장기 시뮬레이션
             if simulation_term_type == 1:
-                target_index_nm_list = ["KOSPI", "S&P500"]
+                target_index_nm_list = ["MSCI World", "KOSPI", "S&P500"]
             # 중기, 단기 시뮬레이션
             else:
                 target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
 
 
             # Test
-            #target_index_nm_list = ["S&P500"]
+            #target_index_nm_list = ["MSCI World", "MSCI EM", "S&P500"]
 
 
-            max_proces_num = 6
+            max_proces_num = 7
             jobs = []
             pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
             for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
