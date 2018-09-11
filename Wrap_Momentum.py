@@ -8,33 +8,64 @@ from datetime import datetime
 from decimal import Decimal, DecimalException
 from scipy.stats.kde import gaussian_kde
 from scipy.stats import norm
+
 from Test_MariaDB import WrapDB
+import Wrap_Util
 
 print_log = False
 print_analysis_log = True
+use_data_pickle = False
 
 if __name__ == '__main__':
 
-    # Wrap운용팀 DB Connect
-    db = WrapDB()
-    db.connet(host="127.0.0.1", port=3306, database="WrapDB_2", user="root", password="ryumaria")
-    data_infos = db.get_data_info()
-
-    data = db.get_quantiwise_datas(data_infos[0])
-    data.columns = ["아이템코드", "아이템명", "날짜", "시가", "종가", "거래량", "시가총액", "기관_순매수", "외인_순매수"]
+    mean_window = 20
+    element_list = ["시가", "종가", "고가", "저가", "거래량", "시가총액", "기관_순매수", "외인_순매수", "평균_거래량", "변동성_거래량", "정규화_거래량", "평균_기관_순매수", "평균_외인_순매수"]
 
     pivoted_datas = {}
-    pivoted_datas["시가"] = data.pivot(index="날짜", columns="아이템명", values="시가")
-    pivoted_datas["종가"] = data.pivot(index="날짜", columns="아이템명", values="종가")
-    pivoted_datas["거래량"] = data.pivot(index="날짜", columns="아이템명", values="거래량")
-    pivoted_datas["시가총액"] = data.pivot(index="날짜", columns="아이템명", values="시가총액")
-    pivoted_datas["기관_순매수"] = data.pivot(index="날짜", columns="아이템명", values="기관_순매수")
-    pivoted_datas["외인_순매수"] = data.pivot(index="날짜", columns="아이템명", values="외인_순매수")
+    if use_data_pickle == False:
 
-    mean_window = 20
-    pivoted_datas["평균_거래량"] = pivoted_datas["거래량"].rolling(mean_window).mean()
-    pivoted_datas["평균_기관_순매수"] = pivoted_datas["기관_순매수"].rolling(mean_window).mean()
-    pivoted_datas["평균_외인_순매수"] = pivoted_datas["외인_순매수"].rolling(mean_window).mean()
+        # Wrap운용팀 DB Connect
+        db = WrapDB()
+        db.connet(host="127.0.0.1", port=3306, database="WrapDB_2", user="root", password="ryumaria")
+        data_infos = db.get_data_info()
+
+        data = db.get_quantiwise_datas(data_infos[0])
+        data.columns = ["아이템코드", "아이템명", "날짜", "시가", "종가", "고가", "저가", "거래량", "시가총액", "기관_순매수", "외인_순매수"]
+
+        pivoted_datas["시가"] = data.pivot(index="날짜", columns="아이템명", values="시가")
+        pivoted_datas["종가"] = data.pivot(index="날짜", columns="아이템명", values="종가")
+        pivoted_datas["고가"] = data.pivot(index="날짜", columns="아이템명", values="고가")
+        pivoted_datas["저가"] = data.pivot(index="날짜", columns="아이템명", values="저가")
+        pivoted_datas["거래량"] = data.pivot(index="날짜", columns="아이템명", values="거래량")
+        pivoted_datas["시가총액"] = data.pivot(index="날짜", columns="아이템명", values="시가총액")
+        pivoted_datas["기관_순매수"] = data.pivot(index="날짜", columns="아이템명", values="기관_순매수")
+        pivoted_datas["외인_순매수"] = data.pivot(index="날짜", columns="아이템명", values="외인_순매수")
+
+        pivoted_datas["평균_거래량"] = pivoted_datas["거래량"].rolling(mean_window).mean()
+        pivoted_datas["변동성_거래량"] = pivoted_datas["거래량"].rolling(mean_window).std()
+        pivoted_datas["정규화_거래량"] = pivoted_datas["거래량"]
+        for idx, row in enumerate(pivoted_datas["거래량"].index):
+            for column in pivoted_datas["거래량"].columns:
+                if idx < mean_window or pivoted_datas["거래량"][column][row] == 0.0 or math.isnan(pivoted_datas["거래량"][column][row]) == True:
+                    pivoted_datas["정규화_거래량"][column][row] = 0.0
+                else:
+                    pivoted_datas["정규화_거래량"][column][row] = (float(pivoted_datas["거래량"][column][row]) - float(pivoted_datas["변동성_거래량"][column][row])) / float(pivoted_datas["정규화_거래량"][column][row])
+
+        pivoted_datas["평균_기관_순매수"] = pivoted_datas["기관_순매수"].rolling(mean_window).mean()
+        pivoted_datas["평균_외인_순매수"] = pivoted_datas["외인_순매수"].rolling(mean_window).mean()
+
+        # pickle 파일 저장
+        for nm in element_list:
+            Wrap_Util.SavePickleFile(file='.\\momentum_%s.pickle' % (nm),obj=pivoted_datas[nm])
+
+        Wrap_Util.SaveExcelFiles(file='.\\momentum_pickle_data.xlsx'
+            ,obj_dict={"정규화_거래량": pivoted_datas["정규화_거래량"], "평균_기관_순매수": pivoted_datas["평균_기관_순매수"], "평균_외인_순매수": pivoted_datas["평균_외인_순매수"]})
+
+    else:
+        # pickle 파일 로드
+        for nm in element_list:
+            pivoted_datas[nm] = Wrap_Util.ReadPickleFile(file='.\\momentum_%s.pickle' % (nm))
+
 
     # 통계 분석 변수
     case_statistics = {"normal": {"count": 0, "rate": 0.0, "date": 0.0}
@@ -45,10 +76,14 @@ if __name__ == '__main__':
 
     # 글로벌 셋팅 파라미터
     volume_surpise_multiple = 10.0
-    use_loss_cut = True
+    volume_surpise_threshold = 0.8
+    use_loss_cut = False
     loss_cut_ratio = -0.30 # -30%에서 손절
     position_in_threshold = 0.0
     position_out_threshold = -5.0
+
+
+    debug_df = pd.DataFrame(index=pivoted_datas["거래량"].index, columns=pivoted_datas["거래량"].columns)
 
     # 1차 시간순으로 처리
     for idx, row_nm in enumerate(pivoted_datas["거래량"].index):
@@ -103,11 +138,18 @@ if __name__ == '__main__':
                     # 과거 평균 거래량 보다 비상적으로 많은 거래가 발생하는 경우
                     # 외인과 기관에서 순매수 발생
                     if status[column_nm] == False:
+
+                        # 포지션 진입전 수익률은 0
+                        debug_df[column_nm][row_nm] = 0
+
                         #print(column_nm, row_nm, pivoted_datas["거래량"].index[-2], pivoted_datas["거래량"][column_nm][idx], pivoted_datas["평균_거래량"][column_nm][idx-1], pivoted_datas["평균_기관_순매수"][column_nm][idx], pivoted_datas["평균_외인_순매수"][column_nm][idx])
-                        if pivoted_datas["거래량"][column_nm][idx] > volume_surpise_multiple * pivoted_datas["평균_거래량"][column_nm][idx-1] \
+                        #if pivoted_datas["거래량"][column_nm][idx] > volume_surpise_multiple * pivoted_datas["평균_거래량"][column_nm][idx-1] \
+                        if pivoted_datas["정규화_거래량"][column_nm][idx] > volume_surpise_threshold \
                             and pivoted_datas["종가"][column_nm][idx] / pivoted_datas["시가"][column_nm][idx] > 1.0 \
+                            and pivoted_datas["고가"][column_nm][idx] / pivoted_datas["종가"][column_nm][idx] > 1.01 \
                             and pivoted_datas["평균_외인_순매수"][column_nm][idx] > position_in_threshold:
-                            #and (pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] > position_in_threshold):
+                            #and pivoted_datas["평균_기관_순매수"][column_nm][idx] > position_in_threshold:
+                            # and (pivoted_datas["평균_기관_순매수"][column_nm][idx] + pivoted_datas["평균_외인_순매수"][column_nm][idx] > position_in_threshold):
                             #and pivoted_datas["평균_외인_순매수"][column_nm][idx] > 1.0:
 
 
@@ -134,6 +176,10 @@ if __name__ == '__main__':
                                     buy_day[column_nm] = row_nm
 
                     elif status[column_nm] == True :
+
+                        # 포지션 진입후 수익률 추이
+                        debug_df[column_nm][row_nm] = float(pivoted_datas["종가"][column_nm][idx]) / float(pivoted_datas["종가"][column_nm][idx-1]) - 1
+
                         # loss cut
                         if use_loss_cut == True and float(pivoted_datas["종가"][column_nm][row_nm]) / buy_price[column_nm] - 1 <= loss_cut_ratio:
                             status[column_nm] = False
@@ -214,6 +260,9 @@ if __name__ == '__main__':
     print("total", '\t', case_statistics["normal"]["count"] + case_statistics["loss_cut"]["count"], '\t'
               , (case_statistics["normal"]["rate"] + case_statistics["loss_cut"]["rate"]) / (case_statistics["normal"]["count"] + case_statistics["loss_cut"]["count"]))
 
+    Wrap_Util.SaveExcelFiles(file='.\\momentum_algorithm_log.xlsx', obj_dict={'debug_df': debug_df})
+
+
     if 0:
         plt.style.use("ggplot")
 
@@ -232,4 +281,5 @@ if __name__ == '__main__':
         plt.show()
 
 
-    db.disconnect()
+    if use_data_pickle == False:
+        db.disconnect()

@@ -141,12 +141,12 @@ class WrapDB(object):
     def get_quantiwise_datas(self, data_list, start_date = None, end_date = None):
 
         if start_date == None and end_date == None:
-            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy"\
+            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.high, b.low, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy"\
                   "  FROM item AS a, value AS b"\
                   " WHERE a.cd = b.item_cd"\
                   "   AND a.cd in (%s)"
         else:
-            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy" \
+            sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.high, b.low, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy" \
                   "  FROM item AS a, value AS b" \
                   " WHERE a.cd = b.item_cd" \
                   "   AND a.cd in (%s)" \
@@ -226,10 +226,10 @@ class WrapDB(object):
         elif type == '주식_시가총액':
             sql = "INSERT INTO value (date, item_cd, market_capitalization, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE market_capitalization=%s, update_tm=%s"
-        elif type == '주식_기관순매수' and value > 0.0:
+        elif type == '주식_기관순매수':
             sql = "INSERT INTO value (date, item_cd, company_net_buy, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE company_net_buy=%s, update_tm=%s"
-        elif type == '주식_외인순매수' and value > 0.0:
+        elif type == '주식_외인순매수':
             sql = "INSERT INTO value (date, item_cd, foreigner_net_buy, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE foreigner_net_buy=%s, update_tm=%s"
         #print (sql)
@@ -269,17 +269,17 @@ class WrapDB(object):
         sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", factor_cd" + str(idx)
-        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, update_tm) "
+        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, update_tm) "
         sql = sql + "VALUES (%s, %s, %s, %s, %s, %s"
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", %s"
-        sql = sql + ", %s, %s, %s, %s, %s)"
+        sql = sql + ", %s, %s, %s, %s, %s, %s)"
         sql = sql +  "ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=%s"
 
         sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql_arg += [int(factor_info['factors_cd'][idx])]
-        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], timestamp]
+        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], etc['term_type'], timestamp]
         sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit'], timestamp]
         sql_arg = tuple(sql_arg)
 

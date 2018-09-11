@@ -326,6 +326,11 @@ class Folione (object):
                     new_point = self.weight_check_term - 1
                     average_array = [0] * self.weight_check_term
                     for idx, row_nm in enumerate(self.zscore_data.index):
+                        
+                        # 시그널이 필요한 전달까지 가장 잘 맞추는 Factor 선정
+                        if row_nm == self.zscore_data.index[-1]:
+                            break
+                        
                         try:
                             # 과거 moving average 생성 및 시프트
                             # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
@@ -338,8 +343,8 @@ class Folione (object):
                                 # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                                 if 0:
                                     average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) \
-                                                        * (self.zscore_column_data[idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
-                                                           + self.zscore_column_data[idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
+                                                        * (self.zscore_data[column_nm][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
+                                                           + self.zscore_data[column_nm][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
                                 # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
                                 else:
                                     average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) * self.zscore_data[column_nm][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
@@ -371,8 +376,8 @@ class Folione (object):
                                         if average_array[-1] == max(average_array):
                                             # self.raw_data[index_nm].index.values[self.window_size + idx]
                                             # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                            if self.window_size + idx < len(self.raw_data.index):
-                                                self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                            #if (self.window_size + idx - 1) < len(self.raw_data.index):
+                                            self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
 
                                             if self.save_datas_excel:
                                                 factor_signal_data[column_nm][idx] = 1
@@ -382,8 +387,8 @@ class Folione (object):
                                         max_zscore_data[column_nm][idx] = max(average_array)
 
                                     # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                    if self.window_size + idx < len(self.raw_data.index):
-                                        self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                    #if (self.window_size + idx - 1) < len(self.raw_data.index):
+                                    self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
                                     # print(index_nm, '\t', column_nm, '\t', row_nm, '\t', model_accumulated_profits, '\t', bm_accumulated_profits)
 
                         except IndexError:
@@ -517,19 +522,26 @@ class Folione (object):
                                     check_first_data = True
 
                                 # 조건 만족으로 BUY 포지션
-                                #if average_array[new_point] == max(average_array):
-                                if average_array[-1] == max(average_array):
-                                    # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                    if self.window_size + idx < len(self.raw_data.index):
-                                        accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
-
-                                    # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
-                                    self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
-
-                                    if self.save_datas_excel:
-                                        model_signal_data[signal_factors_nm][row_nm] = 1
+                                if 0:
+                                    # 이번 signal의 위치에 맞게 주식비율 조절 매수
+                                    ai_profit_rate = 0.0159 / 12  # 예탁이용료 1달 수익률
+                                    buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
+                                    if buy_ratio >= 0.0:
+                                        accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
                                 else:
-                                    self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
+                                    #if average_array[new_point] == max(average_array):
+                                    if average_array[-1] == max(average_array):
+                                        # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
+                                        if self.window_size + idx < len(self.raw_data.index):
+                                            accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+
+                                        # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
+                                        self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
+
+                                        if self.save_datas_excel:
+                                            model_signal_data[signal_factors_nm][row_nm] = 1
+                                    else:
+                                        self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
                                 profit_end_date = row_nm
 
                                 if self.save_datas_excel:
@@ -709,21 +721,26 @@ class Folione (object):
                                         check_first_data = True
 
                                     # 조건 만족으로 BUY 포지션
-                                    #if average_array[new_point] == max(average_array):
-                                    if average_array[-1] == max(average_array):
-                                        # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                        if self.window_size + idx < len(self.raw_data.index):
-                                            accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
-
-
-                                        # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
-                                        self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
-
-                                        if self.save_datas_excel:
-                                            model_signal_data[signal_factors_nm][row_nm] = 1
+                                    if 0:
+                                        # 이번 signal의 위치에 맞게 주식비율 조절 매수
+                                        ai_profit_rate = 0.0159 / 12  # 예탁이용료 1달 수익률
+                                        buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
+                                        if buy_ratio >= 0.0:
+                                            accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
                                     else:
-                                        self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
+                                        #if average_array[new_point] == max(average_array):
+                                        if average_array[-1] == max(average_array):
+                                            # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
+                                            if self.window_size + idx < len(self.raw_data.index):
+                                                accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
 
+                                            # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
+                                            self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
+
+                                            if self.save_datas_excel:
+                                                model_signal_data[signal_factors_nm][row_nm] = 1
+                                        else:
+                                            self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
                                     profit_end_date = row_nm
 
                                     if self.save_datas_excel:
@@ -740,7 +757,7 @@ class Folione (object):
                                         target_cd = factors_nm_cd_map[index_nm]
                                         factor_info = {'factors_num': len(signal_factors_list),'multi_factors_nm': signal_factors_nm,'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
                                         signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
-                                        etc = {'window_size': self.window_size, 'model_profit': accumulated_model_profit, 'bm_profit': accumulated_bm_profit}
+                                        etc = {'window_size': self.window_size, 'model_profit': accumulated_model_profit, 'bm_profit': accumulated_bm_profit, 'term_type': self.simulation_term_type}
 
                                         # 발생하는 모든 과정의 Signal을 저장
                                         if self.save_signal_process_db == True:
@@ -820,7 +837,7 @@ class Folione (object):
 
             # 상관관계를 계산할 때 raw data 또는 Z-Score를 사용할 지 선택
             # Raw Data = 0, Z-Score = 1
-            use_data_type = 0
+            use_data_type = 1
             using_data = self.zscore_data if use_data_type else self.raw_data
 
             # column_nm_1은 Target Index
