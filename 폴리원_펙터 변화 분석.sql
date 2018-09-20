@@ -1,5 +1,6 @@
 select a.start_dt
      , a.end_dt
+     , c.cd
 	  , c.nm as 'target idx'
 	  , a.multi_factors_nm
 	  , a.factors_num as '#f'
@@ -50,7 +51,6 @@ LEFT JOIN item AS m
 	group by start_dt, end_dt, target_cd, term_type
  ) b
 , item c
-, code_element n
 where a.start_dt = b.start_dt
 and a.end_dt = b.end_dt
 and a.target_cd = b.target_cd

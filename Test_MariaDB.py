@@ -90,7 +90,7 @@ class WrapDB(object):
               "  FROM item as a" \
               "  LEFT JOIN value AS b" \
               "    ON a.cd = b.item_cd" \
-              " WHERE a.use_yn = 1" \
+              " WHERE a.use_yn in (1, 2)" \
               " GROUP BY a.cd, a.nm" \
               " HAVING COUNT(*) > 1"
         sql_arg = None
@@ -281,6 +281,30 @@ class WrapDB(object):
             sql_arg += [int(factor_info['factors_cd'][idx])]
         sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], etc['term_type'], timestamp]
         sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit'], timestamp]
+        sql_arg = tuple(sql_arg)
+
+        #print(sql)
+        #print(sql_arg)
+        # 수행
+        self.cursor.execute(sql, sql_arg)
+
+        # DB 반영
+        self.conn.commit();
+
+        return 1
+
+    def insert_factor_signal(self, date_info, target_cd, factor_cd, signal_cd, etc):
+
+        # 최종 update 시간
+        timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+        # Factor의 갯수가 1~10개로 유동적임
+        sql = "INSERT INTO result_factor (start_dt, end_dt, curr_dt, target_cd, factor_cd, window_size, signal_cd, factor_profit, index_profit, term_type, update_tm)"
+        sql = sql + "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        sql = sql +  "ON DUPLICATE KEY UPDATE signal_cd=%s, factor_profit=%s, index_profit=%s, update_tm=%s"
+
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, etc['factor_profit'], etc['index_profit'], etc['term_type'], timestamp]
+        sql_arg += [signal_cd, etc['factor_profit'], etc['index_profit'], timestamp]
         sql_arg = tuple(sql_arg)
 
         #print(sql)

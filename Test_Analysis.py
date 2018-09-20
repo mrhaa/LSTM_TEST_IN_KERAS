@@ -137,7 +137,7 @@ if __name__ == '__main__':
             #target_index_nm_list = ["MSCI World", "MSCI EM", "S&P500"]
 
 
-            max_proces_num = 7
+            max_proces_num = 5
             jobs = []
             pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
             for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):

@@ -100,6 +100,21 @@ class Preprocess (object):
 
         self.pivoted_sampled_datas = self.sampled_datas.pivot(index=index, columns=columns, values=values)
 
+        if 0:
+            # 'B': business daily, 'D': calendar daily, 'W': weekly, 'M': monthly
+            tmp_sampling_list = self.datas.resample('D', on="날짜T", convention="end")
+            tmp_sampled_datas = self.datas.loc[self.datas["날짜T"].isin(list(tmp_sampling_list.indices))]
+            tmp_pivoted_sampled_datas = tmp_sampled_datas.pivot(index=index, columns=columns, values=values)
+
+
+            for column in tmp_pivoted_sampled_datas.columns:
+                for idx, row in enumerate(tmp_pivoted_sampled_datas.index):
+                    if math.isnan(tmp_pivoted_sampled_datas[column][row]) == False:
+                        print(column + '\t' + str((len(tmp_pivoted_sampled_datas.index) - tmp_pivoted_sampled_datas[column].isnull().sum())/(len(tmp_pivoted_sampled_datas.index) - idx)))
+                        break
+
+            Wrap_Util.SaveExcelFiles(file='tmp_pivoted_sampled_datas.xlsx', obj_dict={'pivoted_sampled_datas': tmp_pivoted_sampled_datas})
+
 
     def FillValidData(self, look_back_days):
 
@@ -294,6 +309,11 @@ class Folione (object):
 
         if self.use_factor_selection_pickle == False:
 
+            # Wrap운용팀 DB Connect
+            db = WrapDB()
+            db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
+            factors_nm_cd_map = db.get_factors_nm_cd()
+
             if self.save_datas_excel:
                 factor_signal_data = copy.deepcopy(self.zscore_data)
                 average_zscore_data = copy.deepcopy(self.zscore_data)
@@ -304,6 +324,7 @@ class Folione (object):
             # 누적 수익률 저장 공간
             self.model_accumulated_profits[index_nm] = {}
             self.bm_accumulated_profits[index_nm] = {}
+            self.model_signals[index_nm] = {}
 
             check_first_data = False
             for column_nm in self.zscore_data.columns:
@@ -315,10 +336,13 @@ class Folione (object):
 
                 # Factor별 수익률 계산
                 # 현재, Target Index와 Factor가 동일한 경우는 제외한다.
-                if column_nm != index_nm:
+                #if column_nm != index_nm:
+                # Factor가 Target Indext대비 선행성이 없으면 제외한다.
+                if column_nm != index_nm and int(self.corr[index_nm + "_" + column_nm]['lag']) != 0:
                     # 누적 수익률 초기화
                     self.model_accumulated_profits[index_nm][column_nm] = 1.0
                     self.bm_accumulated_profits[index_nm][column_nm] = 1.0
+                    self.model_signals[index_nm][column_nm] = {}
                     
                     # Correlation lag 사용여부
                     # FACTOR LAG 사용: 1, 미사용: 0
@@ -331,8 +355,8 @@ class Folione (object):
                     for idx, row_nm in enumerate(self.zscore_data.index):
                         
                         # 시그널이 필요한 전달까지 가장 잘 맞추는 Factor 선정
-                        if row_nm == self.zscore_data.index[-1]:
-                            break
+                        #if row_nm == self.zscore_data.index[-1]:
+                        #    break
                         
                         try:
                             # 과거 moving average 생성 및 시프트
@@ -342,6 +366,7 @@ class Folione (object):
                                 average_array[:new_point] = average_array[-new_point:]
 
                                 # 역관계이면 z-score에 -1을 곱한다.
+                                # Corr가 가장 높은 기간으로 lag 적용(Factor가 Target Index보다 선행)
                                 factor_lag = int(self.corr[index_nm + "_" + column_nm]['lag']) if use_factor_lag else 0
                                 # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                                 if 0:
@@ -379,19 +404,25 @@ class Folione (object):
                                         if average_array[-1] == max(average_array):
                                             # self.raw_data[index_nm].index.values[self.window_size + idx]
                                             # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                            #if (self.window_size + idx - 1) < len(self.raw_data.index):
-                                            self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                            if self.window_size + idx < len(self.raw_data.index):
+                                                self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+
+                                            # 3단계. 예측 index & factor & 시계열별로 signal을 가진다
+                                            self.model_signals[index_nm][column_nm][row_nm] = "BUY"
 
                                             if self.save_datas_excel:
                                                 factor_signal_data[column_nm][idx] = 1
+
+                                        else:
+                                            self.model_signals[index_nm][column_nm][row_nm] = "SELL"
 
                                     if self.save_datas_excel:
                                         average_zscore_data[column_nm][idx] = average_array[new_point]
                                         max_zscore_data[column_nm][idx] = max(average_array)
 
                                     # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                    #if (self.window_size + idx - 1) < len(self.raw_data.index):
-                                    self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                    if self.window_size + idx < len(self.raw_data.index):
+                                        self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
                                     # print(index_nm, '\t', column_nm, '\t', row_nm, '\t', model_accumulated_profits, '\t', bm_accumulated_profits)
 
                         except IndexError:
@@ -399,12 +430,25 @@ class Folione (object):
                             pass
 
                     # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
+                    '''
                     if self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
                         print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
                               #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
                               self.model_accumulated_profits[index_nm][column_nm], '\t',
                               self.bm_accumulated_profits[index_nm][column_nm])
+                    '''
+                    # Factor result DB 저장
+                    if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
+                        date_info = {'start_dt': self.profit_calc_start_date, 'end_dt': self.profit_calc_end_date,'curr_dt': row_nm}
+                        target_cd = factors_nm_cd_map[index_nm]
+                        factor_cd = factors_nm_cd_map[column_nm]
+                        signal_cd = 1 if self.model_signals[index_nm][column_nm][row_nm] == "BUY" else 0
+                        etc = {'window_size': self.window_size, 'factor_profit': self.model_accumulated_profits[index_nm][column_nm],
+                               'index_profit': self.bm_accumulated_profits[index_nm][column_nm], 'term_type': self.simulation_term_type}
 
+                        # 마지막 Signal만 저장
+                        if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
+                            db.insert_factor_signal(date_info, target_cd, factor_cd, signal_cd, etc)
 
             Wrap_Util.SavePickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
                                           % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.model_accumulated_profits)
@@ -416,6 +460,9 @@ class Folione (object):
                                           % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
                                          , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'zscore_data': self.zscore_data, 'factor_signal_data': factor_signal_data
                                          , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'corr': self.corr})
+
+            # Wrap운용팀 DB Disconnect
+            db.disconnect()
 
         else:
             self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='.\\pickle\\model_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
