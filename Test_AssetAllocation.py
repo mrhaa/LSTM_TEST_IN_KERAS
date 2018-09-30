@@ -140,6 +140,7 @@ def RP_TargetVol(rets, Target, lb, ub):
         # --- Calculate Portfolio ---#
 
     x0 = np.repeat(1 / covmat.shape[1], covmat.shape[1])
+    print(x0)
     lbound = np.repeat(lb, covmat.shape[1])
     ubound = np.repeat(ub, covmat.shape[1])
     bnds = tuple(zip(lbound, ubound))
@@ -155,7 +156,14 @@ def RP_TargetVol(rets, Target, lb, ub):
                       bounds=bnds)
     return (result.x)
 
-print(RP_TargetVol(profit_data, Target=0.8, lb=0.7, ub=0.9))
+result = RP_TargetVol(profit_data, Target=0.1, lb=0.01, ub=0.19)
+print(result)
+
+total_weight = 0
+for idx, weight in enumerate(result.x):
+    total_weight += weight
+    print(profit_data[idx], weight)
+print(total_weight)
 
 '''
 wts_cash = pd.DataFrame(1 - wts_tv.sum(axis = 1))
