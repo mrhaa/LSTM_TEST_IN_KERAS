@@ -34,9 +34,20 @@ class Preprocess (object):
         self.pivoted_sampled_datas = None
 
 
-    def SetDataInfo(self, data_info, data_info_columns):
+    def SetDataInfo(self, data_info, data_info_columns, data_list=None):
 
-        self.data_info = data_info
+        if data_list == None:
+            self.data_info = data_info
+        else:
+            self.data_info = pd.DataFrame(columns=data_info.columns)
+            count = 0
+            for data in data_info.transpose():
+                if data_info.transpose()[data][1] in data_list:
+                    print(data_info.transpose()[data][1])
+                    self.data_info[count] = data_info.transpose()[data]
+                    count += 1
+            self.data_info = self.data_info.transpose()
+
         self.data_info.columns = data_info_columns
 
 
@@ -115,11 +126,21 @@ class Preprocess (object):
 
             Wrap_Util.SaveExcelFiles(file='tmp_pivoted_sampled_datas.xlsx', obj_dict={'pivoted_sampled_datas': tmp_pivoted_sampled_datas})
 
+        return copy.deepcopy(self.pivoted_sampled_datas)
 
-    def FillValidData(self, look_back_days):
+
+    def FillValidData(self, look_back_days, input_data=None):
+
+        if input_data is not None:
+            self.pivoted_sampled_datas = copy.deepcopy(input_data)
 
         for column_nm in self.pivoted_sampled_datas.columns:
             for row_nm in self.pivoted_sampled_datas.index:
+
+                # Debug
+                #if row_nm == '1996-02-26' and column_nm == '상해종합':
+                #    print(1)
+
                 if math.isnan(self.pivoted_sampled_datas[column_nm][row_nm]) == True:
                     # print (column_nm, "\t", row_nm, "\t", pivoted_sampled_datas[column_nm][row_nm])
 
@@ -141,6 +162,8 @@ class Preprocess (object):
                 # 이후 연산작업을 위해 decimal을 float 형태로 변경
                 if math.isnan(self.pivoted_sampled_datas[column_nm][row_nm]) == False:
                     self.pivoted_sampled_datas[column_nm][row_nm] = float(self.pivoted_sampled_datas[column_nm][row_nm])
+
+        return copy.deepcopy(self.pivoted_sampled_datas)
 
 
     def DropInvalidData(self, drop_basis_from, drop_basis_to):
