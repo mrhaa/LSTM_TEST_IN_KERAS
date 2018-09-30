@@ -160,9 +160,9 @@ result = RP_TargetVol(profit_data, Target=0.1, lb=0.01, ub=0.19)
 print(result)
 
 total_weight = 0
-for idx, weight in enumerate(result.x):
+for idx, weight in enumerate(result):
     total_weight += weight
-    print(profit_data[idx], weight)
+    print(profit_data.columns[idx], weight)
 print(total_weight)
 
 '''
