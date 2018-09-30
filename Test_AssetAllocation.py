@@ -163,7 +163,7 @@ total_weight = 0
 for idx, weight in enumerate(result):
     total_weight += weight
     print(profit_data.columns[idx], weight)
-print(total_weight)
+print('현금', 1.0 - total_weight)
 
 '''
 wts_cash = pd.DataFrame(1 - wts_tv.sum(axis = 1))
