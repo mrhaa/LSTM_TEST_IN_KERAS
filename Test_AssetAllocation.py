@@ -50,7 +50,7 @@ preprocess.SetDatas(datas=datas, datas_columns=["아이템코드", "아이템명
 
 # DataFrame 형태의 Sampled Data 생성
 # 'B': business daily, 'D': calendar daily, 'W-MON, W-WED': weekly, 'M': monthly
-raw_data = preprocess.MakeSampledDatas(sampling_type='W-MON', index='날짜', columns='아이템명', values='값')
+raw_data = preprocess.MakeSampledDatas(sampling_type='M', index='날짜', columns='아이템명', values='값')
 
 # 유효한 데이터 가장 최근 값으로 채움
 filled_data = preprocess.FillValidData(look_back_days=30, input_data=raw_data)
@@ -140,13 +140,13 @@ def RP_TargetVol(rets, Target, lb, ub):
         # --- Calculate Portfolio ---#
 
     x0 = np.repeat(1 / covmat.shape[1], covmat.shape[1])
-    print(x0)
+    #print(x0)
     lbound = np.repeat(lb, covmat.shape[1])
     ubound = np.repeat(ub, covmat.shape[1])
     bnds = tuple(zip(lbound, ubound))
     constraints = ({'type': 'ineq', 'fun': TargetVol_const_lower},
                    {'type': 'ineq', 'fun': TargetVol_const_upper})
-    options = {'ftol': 1e-20, 'maxiter': 5000, 'disp': True}
+    options = {'ftol': 1e-20, 'maxiter': 5000, 'disp': False}
 
     result = minimize(fun=RiskParity_objective,
                       x0=x0,
@@ -156,14 +156,25 @@ def RP_TargetVol(rets, Target, lb, ub):
                       bounds=bnds)
     return (result.x)
 
-result = RP_TargetVol(profit_data, Target=0.1, lb=0.01, ub=0.19)
-print(result)
 
-total_weight = 0
-for idx, weight in enumerate(result):
-    total_weight += weight
-    print(profit_data.columns[idx], weight)
-print('현금', 1.0 - total_weight)
+period_term = 12
+for prd_idx, a in enumerate(profit_data.index):
+    if prd_idx + period_term > len(profit_data):
+        print('break', prd_idx + period_term, len(profit_data))
+        break
+
+    result = RP_TargetVol(profit_data[prd_idx:prd_idx + period_term], Target=0.1, lb=0.00, ub=0.2)
+    #print(result)
+
+    total_weight = 0
+    result_dict = {}
+    for rst_idx, weight in enumerate(result):
+        total_weight += weight
+        #print(profit_data.columns[idx], weight)
+        result_dict[profit_data.columns[rst_idx]] = weight
+    #print('현금', 1.0 - total_weight)
+    result_dict['현금'] = 1.0 - total_weight
+    print(prd_idx, profit_data.index[prd_idx + period_term - 1], result_dict)
 
 '''
 wts_cash = pd.DataFrame(1 - wts_tv.sum(axis = 1))
