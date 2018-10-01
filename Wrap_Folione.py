@@ -347,7 +347,6 @@ class Folione (object):
             # 누적 수익률 저장 공간
             self.model_accumulated_profits[index_nm] = {}
             self.bm_accumulated_profits[index_nm] = {}
-            self.model_signals[index_nm] = {}
 
             check_first_data = False
             for column_nm in self.zscore_data.columns:
@@ -365,7 +364,8 @@ class Folione (object):
                     # 누적 수익률 초기화
                     self.model_accumulated_profits[index_nm][column_nm] = 1.0
                     self.bm_accumulated_profits[index_nm][column_nm] = 1.0
-                    self.model_signals[index_nm][column_nm] = {}
+                    
+                    model_signal = "BUY"
                     
                     # Correlation lag 사용여부
                     # FACTOR LAG 사용: 1, 미사용: 0
@@ -431,13 +431,13 @@ class Folione (object):
                                                 self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
 
                                             # 3단계. 예측 index & factor & 시계열별로 signal을 가진다
-                                            self.model_signals[index_nm][column_nm][row_nm] = "BUY"
+                                            model_signal = "BUY"
 
                                             if self.save_datas_excel:
                                                 factor_signal_data[column_nm][idx] = 1
 
                                         else:
-                                            self.model_signals[index_nm][column_nm][row_nm] = "SELL"
+                                            model_signal = "SELL"
 
                                     if self.save_datas_excel:
                                         average_zscore_data[column_nm][idx] = average_array[new_point]
@@ -453,19 +453,19 @@ class Folione (object):
                             pass
 
                     # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
-                    '''
+                    
                     if self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
                         print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
                               #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
                               self.model_accumulated_profits[index_nm][column_nm], '\t',
                               self.bm_accumulated_profits[index_nm][column_nm])
-                    '''
+                    
                     # Factor result DB 저장
                     if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
                         date_info = {'start_dt': self.profit_calc_start_date, 'end_dt': self.profit_calc_end_date,'curr_dt': row_nm}
                         target_cd = factors_nm_cd_map[index_nm]
                         factor_cd = factors_nm_cd_map[column_nm]
-                        signal_cd = 1 if self.model_signals[index_nm][column_nm][row_nm] == "BUY" else 0
+                        signal_cd = 1 if model_signal == "BUY" else 0
                         etc = {'window_size': self.window_size, 'factor_profit': self.model_accumulated_profits[index_nm][column_nm],
                                'index_profit': self.bm_accumulated_profits[index_nm][column_nm], 'term_type': self.simulation_term_type}
 
@@ -720,6 +720,7 @@ class Folione (object):
             # 1단계. 예측 index별로 container 생성
             self.model_signals[index_nm] = {}
 
+			# reverse가 True이면 내림차순, False이면 올림차순
             model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
             
             # combination factor 갯수
