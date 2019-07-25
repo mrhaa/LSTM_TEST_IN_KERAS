@@ -493,6 +493,10 @@ for idx, column in enumerate(all_columns):
                 s_date = str(dates[idx].value)[:10]
                 f_value = values[idx].value
 
+                if '#N/A' in s_date:
+                    print('Wrong Data...')
+                    break
+
                 count += db.insert_bloomberg_value(item_cd, s_date, f_value)
                 #break
         #break

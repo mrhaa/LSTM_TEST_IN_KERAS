@@ -85,7 +85,19 @@ class WrapDB(object):
 
         return pd.DataFrame(data)
 
+    def select_query(self, query):
+        sql = query
+        sql_arg = None
+
+        self.cursor.execute(sql, sql_arg)
+
+        data = self.cursor.fetchall()
+
+        return pd.DataFrame(data)
+
+
     def get_data_info(self):
+        # AND a.original = 1 부분은 배치에 따라 가감된다.
         sql = "SELECT a.cd, a.nm, count(*), min(date), max(date)" \
               "  FROM item as a" \
               "  LEFT JOIN value AS b" \
@@ -178,11 +190,14 @@ class WrapDB(object):
         sql = "INSERT INTO member (name, addr) VALUES (%s, %s) ON DUPLICATE KEY UPDATE name=%s, addr=%s"
         sql_arg = (u"김영일", u"염창동", u"박효근", u"신길동")
 
-        # 수행
-        self.cursor.execute(sql, sql_arg)
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
 
-        # DB 반영
-        self.conn.commit();
+            # DB 반영
+            self.conn.commit()
+        except:
+            self.conn.rollback()
 
         return True
 
@@ -194,11 +209,14 @@ class WrapDB(object):
         sql = "INSERT INTO value (date, item_cd, value, create_tm, update_tm) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE value=%s, update_tm=%s"
         sql_arg = (date, item_cd, value, timestamp, timestamp, value, timestamp)
 
-        # 수행
-        self.cursor.execute(sql, sql_arg)
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
 
-        # DB 반영
-        self.conn.commit();
+            # DB 반영
+            self.conn.commit()
+        except:
+            self.conn.rollback()
 
         return 1
 
@@ -235,11 +253,14 @@ class WrapDB(object):
         #print (sql)
         sql_arg = (date, item_cd, value, timestamp, timestamp, value, timestamp)
 
-        # 수행
-        self.cursor.execute(sql, sql_arg)
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
 
-        # DB 반영
-        self.conn.commit();
+            # DB 반영
+            self.conn.commit()
+        except:
+            self.conn.rollback()
 
         return 1
 
@@ -285,11 +306,15 @@ class WrapDB(object):
 
         #print(sql)
         #print(sql_arg)
-        # 수행
-        self.cursor.execute(sql, sql_arg)
 
-        # DB 반영
-        self.conn.commit();
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
+
+            # DB 반영
+            self.conn.commit()
+        except:
+            self.conn.rollback()
 
         return 1
 
@@ -309,11 +334,14 @@ class WrapDB(object):
 
         #print(sql)
         #print(sql_arg)
-        # 수행
-        self.cursor.execute(sql, sql_arg)
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
 
-        # DB 반영
-        self.conn.commit();
+            # DB 반영
+            self.conn.commit()
+        except:
+            self.conn.rollback()
 
         return 1
 
@@ -325,10 +353,13 @@ class WrapDB(object):
               "  AND end_dt = '%s'" \
               "  AND window_size = %s" % (table_nm, int(target_cd), start_dt, end_dt, window_size)
 
-        # 수행
-        self.cursor.execute(sql)
+        try:
+            # 수행
+            self.cursor.execute(sql)
 
-        # DB 반영
-        self.conn.commit();
+            # DB 반영
+            self.conn.commit()
+        except:
+            self.conn.rollback()
 
         return 1

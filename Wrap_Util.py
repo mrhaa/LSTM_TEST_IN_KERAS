@@ -4,6 +4,7 @@ import pickle
 import xlsxwriter
 import openpyxl
 import pandas as pd
+import numpy as np
 
 
 def SavePickleFile(file='test.pickle', obj=None):
@@ -40,3 +41,42 @@ def SaveExcelFiles(file='test.xlsx', obj_dict=None):
     writer.save()
 
     return True
+
+def GetSlope(X, Y):
+    Ym1 = list()
+    Xmn = list()
+    # y 데이터셋
+    #for theft in Y.values:
+    for theft in Y:
+        Ym1.append([float(theft)])
+
+    # X 데이터셋
+    #for all in X.values:
+    for all in X:
+        Xmn.append([1.0, float(all)])
+
+    Y = np.array(Ym1, dtype=np.float32)
+    X = np.array(Xmn, dtype=np.float32)
+
+    use_lstsq_func = True
+    beta_hat = None
+    try:
+
+        if use_lstsq_func == True:
+            beta_hat = np.linalg.lstsq(X, Y)
+        else:
+            XtX = X.T.dot(X)
+            I_XtX = np.linalg.inv(XtX)
+            beta_hat = I_XtX.dot(X.T).dot(Y)
+
+            beta_hat = np.dot(np.dot(np.linalg.inv(np.dot(X.T, X)), X.T), Y)
+    except np.linalg.LinAlgError as err:
+        print(err)
+
+    if use_lstsq_func == True:
+        angle = beta_hat[0][1][0]
+    else:
+        angle = beta_hat[1][0]
+        bias = beta_hat[0][0]
+
+    return angle
