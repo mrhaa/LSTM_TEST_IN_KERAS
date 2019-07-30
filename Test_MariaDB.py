@@ -186,6 +186,22 @@ class WrapDB(object):
 
         return pd.DataFrame(data)
 
+    def insert_query(self, sql, sql_arg):
+
+        try:
+            # 수행
+            self.cursor.execute(sql % sql_arg)
+
+            # DB 반영
+            self.conn.commit()
+
+            return True
+
+        except:
+            self.conn.rollback()
+
+            return False
+
     def insert(self):
         sql = "INSERT INTO member (name, addr) VALUES (%s, %s) ON DUPLICATE KEY UPDATE name=%s, addr=%s"
         sql_arg = (u"김영일", u"염창동", u"박효근", u"신길동")
@@ -196,10 +212,13 @@ class WrapDB(object):
 
             # DB 반영
             self.conn.commit()
+
+            return True
+
         except:
             self.conn.rollback()
 
-        return True
+            return False
 
     def insert_bloomberg_value(self, item_cd, date, value):
 
@@ -215,10 +234,13 @@ class WrapDB(object):
 
             # DB 반영
             self.conn.commit()
+
+            return True
+
         except:
             self.conn.rollback()
 
-        return 1
+            return False
 
     def insert_quantiwise_value(self, item_cd, date, value, type):
 
@@ -259,10 +281,13 @@ class WrapDB(object):
 
             # DB 반영
             self.conn.commit()
+
+            return True
+
         except:
             self.conn.rollback()
 
-        return 1
+            return False
 
     def get_factors_nm_cd(self):
         sql = "SELECT nm, cd" \
@@ -313,10 +338,13 @@ class WrapDB(object):
 
             # DB 반영
             self.conn.commit()
+
+            return True
+
         except:
             self.conn.rollback()
 
-        return 1
+            return False
 
     def insert_factor_signal(self, date_info, target_cd, factor_cd, signal_cd, etc):
 
@@ -340,10 +368,13 @@ class WrapDB(object):
 
             # DB 반영
             self.conn.commit()
+
+            return True
+
         except:
             self.conn.rollback()
 
-        return 1
+            return False
 
     def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size):
         sql = "DELETE " \
@@ -359,7 +390,10 @@ class WrapDB(object):
 
             # DB 반영
             self.conn.commit()
+
+            return True
+
         except:
             self.conn.rollback()
 
-        return 1
+            return False
