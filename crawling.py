@@ -9,6 +9,7 @@ import datetime
 import time
 from itertools import count
 import arrow
+import pandas as pd
 
 
 class Good():
@@ -165,3 +166,141 @@ def InvestingEconomicEventCalendar(url, cd):
             results.append(tmp_rlt)
 
     return results
+
+
+class IndiceHistoricalData():
+
+	def __init__(self, API_url):
+		self.API_url = API_url
+
+		# set https header parameters
+		headers = {
+			'User-Agent': 'Mozilla/5.0',  # required
+			'referer': "https://www.investing.com",
+			'host': 'www.investing.com',
+			'X-Requested-With': 'XMLHttpRequest'
+		}
+		self.headers = headers
+
+	#set indice data (indices.py)
+	def setFormData(self, data):
+		self.data = data
+
+	#prices frequency, possible values: Monthly, Weekly, Daily
+	def updateFrequency(self, frequency):
+		self.data['frequency'] = frequency
+
+	#desired time period from/to
+	def updateStartingEndingDate(self, startingDate, endingDate):
+		self.data['st_date'] = startingDate
+		self.data['end_date'] = endingDate
+
+	#possible values: 'DESC', 'ASC'
+	def setSortOreder(self, sorting_order):
+		self.data['sort_ord'] = sorting_order
+
+	#making the post request
+	def downloadData(self):
+		self.response = requests.post(self.API_url, data=self.data, headers=self.headers).content
+		#parse tables with pandas - [0] probably there is only one html table in response
+		self.observations = pd.read_html(self.response)[0]
+		return self.observations
+
+	#print retrieved data
+	def printData(self):
+		print(self.observations)
+
+	#print retrieved data
+	def saveDataCSV(self):
+		self.observations.to_csv(self.data['name']+'.csv', sep='\t', encoding='utf-8')
+
+
+#https://www.investing.com/commodities/gold-historical-data
+GC = {
+	'name' : 'GC',
+	'curr_id': 8830,
+	'smlID': 300004,
+	'header' : 'Gold Futures',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/commodities/copper-historical-data
+HG = {
+	'name' : 'HG',
+	'curr_id': 8831,
+	'smlID': 300012,
+	'header' : 'Copper Futures',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/commodities/silver-historical-data
+SI = {
+	'name' : 'SI',
+	'curr_id': 8836,
+	'smlID': 300044,
+	'header' : 'Silver Futures',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/commodities/natural-gas-historical-data
+NG = {
+	'name' : 'NG',
+	'curr_id': 8862,
+	'smlID': 300092,
+	'header' : 'Natural Gas Futures',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/commodities/crude-oil-historical-data
+CL = {
+	'name' : 'CL',
+	'curr_id': 8849,
+	'smlID': 300060,
+	'header' : 'Crude Oil WTI Futures',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/indices/us-30-historical-data
+DJI = {
+	'name' : 'DJI',
+	'curr_id': 169,
+	'smlID': 2030170,
+	'header' : 'Dow Jones Industrial Average',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/indices/us-spx-500-historical-data
+SPX = {
+	'name' : 'SPX',
+	'curr_id': 166,
+	'smlID': 2030167,
+	'header' : 'S&P 500',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/indices/nq-100-historical-data
+NDX = {
+	'name' : 'NDX',
+	'curr_id': 20,
+	'smlID': 2030165,
+	'header' : 'Nasdaq 100',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
+
+#https://www.investing.com/indices/eu-stoxx50-historical-data
+STOXX50E = {
+	'name' : 'STOXX50E',
+	'curr_id': 175,
+	'smlID': 2030175,
+	'header' : 'Euro Stoxx 50',
+	'sort_col' : 'date',
+	'action' : 'historical_data'
+}
