@@ -37,6 +37,8 @@ def getRealValue(s):
                 value = float(s[:-1]) * 1000000
             elif s[-1] == '%':
                 value = float(s[:-1]) / 100
+            elif s[-1] == '-':
+                value = 0.0
             else:
                 value = float(s)
 
@@ -144,7 +146,7 @@ if 1:
         ihd.updateStartingEndingDate('1/1/2010', '7/25/2019')
         ihd.setSortOreder('ASC')
         ihd.downloadData()
-        ihd.printData()
+        #ihd.printData()
 
         results = ihd.observations
         for result in results.iterrows():
