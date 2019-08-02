@@ -35,6 +35,8 @@ def getRealValue(s):
                 value = float(s[:-1]) * 1000
             elif s[-1] == 'M':
                 value = float(s[:-1]) * 1000000
+            elif s[-1] == 'B':
+                value = float(s[:-1]) * 1000000000
             elif s[-1] == '%':
                 value = float(s[:-1]) / 100
             elif s[-1] == '-':
@@ -55,10 +57,10 @@ db.connet(host="127.0.0.1", port=3306, database="investing.com", user="root", pa
 
 calendar_map = {'Jan': 1,'Feb': 2,'Mar': 3,'Apr': 4,'May': 5,'Jun': 6,'Jul': 7,'Aug': 8,'Sep': 9,'Oct': 10,'Nov': 11,'Dec': 12,'Q1': 1,'Q2': 2,'Q3': 3,'Q4': 4}
 
-if 0:
+if 1:
     datas = db.select_query("SELECT cd, nm_us, link, ctry, period"
                             "  FROM economic_events"
-                            " WHERE imp_kr = 3")
+                            " WHERE imp_us in (1,2,3)")
     datas.columns = ['cd', 'nm_us', 'link', 'ctry', 'period']
     #print(type(datas))
 
@@ -69,6 +71,11 @@ if 0:
         ctry = data[1]['ctry']
         period = data[1]['period']
 
+        '''
+        if cd < 1811:
+            print('continue: ', nm, link)
+            continue
+        '''
         results = crawling.InvestingEconomicEventCalendar(link, cd)
         print(nm, link, type(results))
         #print(results)
@@ -123,7 +130,7 @@ if 0:
     i.getEvents()
 
 
-if 1:
+if 0:
     master_list = db.select_query("SELECT cd, nm_us, curr_id, smlID"
                             "  FROM index_master")
     master_list.columns = ['cd', 'nm_us', 'curr_id', 'smlID']
