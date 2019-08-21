@@ -60,14 +60,17 @@ db.connet(host="127.0.0.1", port=3306, database="investing.com", user="root", pa
 
 calendar_map = {'Jan': 1,'Feb': 2,'Mar': 3,'Apr': 4,'May': 5,'Jun': 6,'Jul': 7,'Aug': 8,'Sep': 9,'Oct': 10,'Nov': 11,'Dec': 12,'Q1': 1,'Q2': 2,'Q3': 3,'Q4': 4}
 
-if 0:
+if 1:
     startTime = timeit.default_timer()
 
+    # Economic Event별 히스토리컬 데이터 크롤링
     datas = db.select_query("SELECT cd, nm_us, link, ctry, period"
                             "  FROM economic_events"
                             " WHERE imp_us in (1,2,3)")
     datas.columns = ['cd', 'nm_us', 'link', 'ctry', 'period']
     #print(type(datas))
+
+    session = crawling.InvestingEconomicEventCalendar()
 
     for data in datas.iterrows():
         cd = data[1]['cd']
@@ -81,8 +84,9 @@ if 0:
             print('continue: ', nm, link)
             continue
 
-        results = crawling.InvestingEconomicEventCalendar(link, cd)
-        print(nm, link, len(results))
+
+        results = session.GetEventSchedule(link, cd)
+        print(cd, nm, link, len(results))
         #print(results)
 
         # 통계시점에 대한 정보가 없는 경우에 이전 데이터에 대한 정보를 사용해서 추정
@@ -134,17 +138,21 @@ if 0:
         endTime = timeit.default_timer()
         print("Cnt:", str(cnt), "\tElapsed time: ", str(endTime - startTime))
 
+# 당일 Economic Event 리스트 크롤링
 if 0:
-    i = crawling.InvestingEconomicCalendar('https://www.investing.com/economic-calendar/')
+    country_list = ['United States', 'South Korea', 'China', 'Euro Zone']
+    i = crawling.InvestingEconomicCalendar('https://www.investing.com/economic-calendar/', country_list)
     i.getEvents()
 
-
-if 1:
+# 각 국가별 지수 및 원자재 근월물 가격 데이터 크롤링
+if 0:
     master_list = db.select_query("SELECT cd, nm_us, curr_id, smlID"
                             "  FROM index_master")
     master_list.columns = ['cd', 'nm_us', 'curr_id', 'smlID']
 
 
+    satrt_date = '1/1/2010'
+    end_date = '7/25/2019'
     for master in master_list.iterrows():
         # first set Headers and FormData
         ihd = IndiceHistoricalData('https://www.investing.com/instruments/HistoricalDataAjax')
@@ -159,7 +167,7 @@ if 1:
 
         # second set Variables
         ihd.updateFrequency('Daily')
-        ihd.updateStartingEndingDate('1/1/2010', '8/2/2019')
+        ihd.updateStartingEndingDate(satrt_date, end_date)
         ihd.setSortOreder('ASC')
         ihd.downloadData()
         #ihd.printData()
@@ -191,3 +199,45 @@ if 1:
                 print('에러정보 : ', e, file=sys.stderr)
                 print(date_splits, pre_statistics_time)
         #ihd.saveDataCSV()
+
+
+if 0:
+    datas = db.select_query("select a.nm_us, a.cd, b.release_date "
+                            "  from economic_events a, economic_events_schedule b"
+                            " where a.cd = b.event_cd")
+    datas.columns = ['nm_us', 'cd', 'release_date']
+
+
+    last_nm_us = None
+    last_cd = None
+    last_release_date = None
+
+    total_date = 0
+    count = 0
+    for data in datas.iterrows():
+        try:
+            curr_nm_us = data[1]['nm_us']
+            curr_cd = data[1]['cd']
+            curr_release_date = pd.to_datetime(str(data[1]['release_date']), format="%Y-%m-%d")
+
+            if last_cd is not None:
+                if last_cd != curr_cd:
+                    print(str(last_cd), '\t', last_nm_us, '\t', str(total_date/count))
+                    total_date = 0
+                    count = 0
+                else:
+                    total_date += (curr_release_date - last_release_date).days
+                    count += 1
+
+            last_nm_us = curr_nm_us
+            last_cd = curr_cd
+            last_release_date = curr_release_date
+        except ZeroDivisionError as e:
+            print('에러정보 : ', str(last_cd), file=sys.stderr)
+            print(str(last_cd), '\t', last_nm_us)
+
+
+
+
+
+db.disconnect()
