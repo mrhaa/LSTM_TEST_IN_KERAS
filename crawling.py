@@ -40,10 +40,11 @@ class Unknow():
 
 
 class InvestingEconomicCalendar():
-    def __init__(self, uri='https://www.investing.com/economic-calendar/'):
+    def __init__(self, uri='https://www.investing.com/economic-calendar/', country_list = None):
         self.uri = uri
         self.req = urllib.request.Request(uri)
         self.req.add_header('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36')
+        self.country_list = country_list
         self.result = []
 
     def getEvents(self):
@@ -66,6 +67,10 @@ class InvestingEconomicCalendar():
                 cols = row.find('td', {"class": "flagCur"})
                 flag = cols.find('span')
                 events['country'] = flag.get('title')
+
+                # 예외 국가 필터링
+                if self.country_list is not None and events['country'] not in self.country_list:
+                    continue
 
                 impact = row.find('td', {"class": "sentiment"})
                 bull = impact.findAll('i', {"class": "grayFullBullishIcon"})
@@ -114,58 +119,59 @@ class InvestingEconomicCalendar():
         return self.result
 
 
-def InvestingEconomicEventCalendar(url, cd):
+class InvestingEconomicEventCalendar():
+    def __init__(self):
+        self.options = webdriver.ChromeOptions()
+        if 0:
+            self.options.add_argument('headless')
+            self.options.add_argument('window-size=1920x1080')
+            self.options.add_argument("disable-gpu")
+            # 혹은 options.add_argument("--disable-gpu")
+
+        self.wd = webdriver.Chrome('chromedriver', chrome_options=self.options)
+        self.wd.get('https://www.investing.com')
+        time.sleep(60)
 
 
-    # \U는 유니코드로 인식되기 때문에 \\U와 같이 escape 처리했다.
-    options = webdriver.ChromeOptions()
-    options.add_argument('headless')
-    options.add_argument('window-size=1920x1080')
-    options.add_argument("disable-gpu")
-    # 혹은 options.add_argument("--disable-gpu")
+    def GetEventSchedule(self, url, cd):
 
-    wd = webdriver.Chrome('chromedriver', chrome_options=options)
-    wd.get(url)
+        self.wd.get(url)
 
-
-    try:
         RESULT_DIRECTORY = '__results__/crawling'
         results = []
         for page in count(1):
-            #script = 'store.getList(%d)' % page  # 굽네치킨에서 사용하는 페이지를 이동시키는 js 코드
-            script = 'void(0)'  # 굽네치킨에서 사용하는 페이지를 이동시키는 js 코드
-            #wd.execute_script(script)  # js 실행
-            result = wd.find_element_by_xpath('//*[@id="showMoreHistory%s"]/a' % cd)
-            result.click()
+            try:
+                script = 'void(0)'  # 사용하는 페이지를 이동시키는 js 코드
+                #self.wd.execute_script(script)  # js 실행
+                result = self.wd.find_element_by_xpath('//*[@id="showMoreHistory%s"]/a' % cd)
+                result.click()
 
-            time.sleep(1)              # 크롤링 로직을 수행하기 위해 5초정도 쉬어준다.
+                time.sleep(1)              # 크롤링 로직을 수행하기 위해 5초정도 쉬어준다.
 
+            except:
+                print('error: %s' % str(page))
 
+                html = self.wd.page_source
+                bs = BeautifulSoup(html, 'html.parser')
+                tbody = bs.find('tbody')
+                rows = tbody.findAll('tr')
 
-    except:
-        print('error: %s' % str(page))
+                for row in rows:
+                    tmp_rlt = {}
 
-        html = wd.page_source
-        bs = BeautifulSoup(html, 'html.parser')
-        tbody = bs.find('tbody')
-        rows = tbody.findAll('tr')
+                    times = row.findAll('td', {'class': 'left'})
+                    tmp_rlt['date'] = times[0].text.strip()
+                    tmp_rlt['time'] = times[1].text.strip()
 
-        for row in rows:
-            tmp_rlt = {}
+                    values = row.findAll('td', {'class': 'noWrap'})
+                    tmp_rlt['bold'] = values[0].text.strip()
+                    tmp_rlt['fore'] = values[1].text.strip()
+                    tmp_rlt['prev'] = values[2].text.strip()
+                    #print(tmp_rlt)
 
-            times = row.findAll('td', {'class': 'left'})
-            tmp_rlt['date'] = times[0].text.strip()
-            tmp_rlt['time'] = times[1].text.strip()
+                    results.append(tmp_rlt)
 
-            values = row.findAll('td', {'class': 'noWrap'})
-            tmp_rlt['bold'] = values[0].text.strip()
-            tmp_rlt['fore'] = values[1].text.strip()
-            tmp_rlt['prev'] = values[2].text.strip()
-            #print(tmp_rlt)
-
-            results.append(tmp_rlt)
-
-    return results
+                return results
 
 
 class IndiceHistoricalData():
