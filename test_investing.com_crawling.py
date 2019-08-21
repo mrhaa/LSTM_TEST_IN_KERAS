@@ -20,6 +20,9 @@ import crawling
 from crawling import *
 import re
 from datetime import date
+import timeit
+
+
 
 
 warnings.filterwarnings("ignore")
@@ -31,7 +34,7 @@ def getRealValue(s):
             value = 'NULL'
         else:
             s = s.replace(',', '')
-            if s[-1] == 'K':
+            if s[-1] == 'K' or s[-1] == 'k':
                 value = float(s[:-1]) * 1000
             elif s[-1] == 'M':
                 value = float(s[:-1]) * 1000000
@@ -57,7 +60,9 @@ db.connet(host="127.0.0.1", port=3306, database="investing.com", user="root", pa
 
 calendar_map = {'Jan': 1,'Feb': 2,'Mar': 3,'Apr': 4,'May': 5,'Jun': 6,'Jul': 7,'Aug': 8,'Sep': 9,'Oct': 10,'Nov': 11,'Dec': 12,'Q1': 1,'Q2': 2,'Q3': 3,'Q4': 4}
 
-if 1:
+if 0:
+    startTime = timeit.default_timer()
+
     datas = db.select_query("SELECT cd, nm_us, link, ctry, period"
                             "  FROM economic_events"
                             " WHERE imp_us in (1,2,3)")
@@ -71,19 +76,19 @@ if 1:
         ctry = data[1]['ctry']
         period = data[1]['period']
 
-        '''
-        if cd < 1811:
+
+        if cd < 0:
             print('continue: ', nm, link)
             continue
-        '''
+
         results = crawling.InvestingEconomicEventCalendar(link, cd)
-        print(nm, link, type(results))
+        print(nm, link, len(results))
         #print(results)
 
         # 통계시점에 대한 정보가 없는 경우에 이전 데이터에 대한 정보를 사용해서 추정
         pre_statistics_time = 0
         # 시계역 역순(가장 최근 데이터가 처음)
-        for result in results:
+        for cnt, result in enumerate(results):
             try:
                 date_rlt = result['date']
                 date_splits = re.split('\W+', date_rlt)
@@ -120,17 +125,21 @@ if 1:
                 sql_arg = (cd, date_str, time, statistics_time, bold_flt, fore_flt, time, statistics_time, bold_flt, fore_flt)
 
                 if(db.insert_query(sql, sql_arg) == False):
-                    print(sql % sql_arg)
+                    print(sql % sql_arg) # insert 에러 메세지를 보여준다.
+
             except (TypeError, KeyError) as e:
                 print('에러정보 : ', e, file=sys.stderr)
                 print(date_splits, pre_statistics_time)
+
+        endTime = timeit.default_timer()
+        print("Cnt:", str(cnt), "\tElapsed time: ", str(endTime - startTime))
 
 if 0:
     i = crawling.InvestingEconomicCalendar('https://www.investing.com/economic-calendar/')
     i.getEvents()
 
 
-if 0:
+if 1:
     master_list = db.select_query("SELECT cd, nm_us, curr_id, smlID"
                             "  FROM index_master")
     master_list.columns = ['cd', 'nm_us', 'curr_id', 'smlID']
@@ -150,7 +159,7 @@ if 0:
 
         # second set Variables
         ihd.updateFrequency('Daily')
-        ihd.updateStartingEndingDate('1/1/2010', '7/25/2019')
+        ihd.updateStartingEndingDate('1/1/2010', '8/2/2019')
         ihd.setSortOreder('ASC')
         ihd.downloadData()
         #ihd.printData()
