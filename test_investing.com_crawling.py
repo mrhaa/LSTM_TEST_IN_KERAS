@@ -34,11 +34,11 @@ def getRealValue(s):
             value = 'NULL'
         else:
             s = s.replace(',', '')
-            if s[-1] == 'K' or s[-1] == 'k':
+            if s[-1].upper() == 'K':
                 value = float(s[:-1]) * 1000
-            elif s[-1] == 'M':
+            elif s[-1].upper() == 'M':
                 value = float(s[:-1]) * 1000000
-            elif s[-1] == 'B':
+            elif s[-1].upper() == 'B':
                 value = float(s[:-1]) * 1000000000
             elif s[-1] == '%':
                 value = float(s[:-1]) / 100
