@@ -128,7 +128,8 @@ class InvestingEconomicEventCalendar():
             self.options.add_argument("disable-gpu")
             # 혹은 options.add_argument("--disable-gpu")
 
-        self.wd = webdriver.Chrome('chromedriver', chrome_options=self.options)
+        #self.wd = webdriver.Chrome('chromedriver', chrome_options=self.options)
+        self.wd = webdriver.Chrome('/Users/sangjinryu/Downloads/chromedriver', chrome_options=self.options)
         self.wd.get('https://www.investing.com')
         time.sleep(60)
 
@@ -163,6 +164,7 @@ class InvestingEconomicEventCalendar():
                     times = row.findAll('td', {'class': 'left'})
                     tmp_rlt['date'] = times[0].text.strip()
                     tmp_rlt['time'] = times[1].text.strip()
+                    tmp_rlt['pre_release'] = True if times[1].find('span') != None and times[1].find('span')['title'] == "Preliminary Release" else False
 
                     values = row.findAll('td', {'class': 'noWrap'})
                     tmp_rlt['bold'] = values[0].text.strip()

@@ -60,16 +60,20 @@ db.connet(host="127.0.0.1", port=3306, database="investing.com", user="root", pa
 
 calendar_map = {'Jan': 1,'Feb': 2,'Mar': 3,'Apr': 4,'May': 5,'Jun': 6,'Jul': 7,'Aug': 8,'Sep': 9,'Oct': 10,'Nov': 11,'Dec': 12,'Q1': 1,'Q2': 2,'Q3': 3,'Q4': 4}
 
+# 등록된 Economic Event 리스트의 데이터를 크롤링
+# Economic Event 리스트는 investing.com의 Economic Calendar에서 수집 후 엑셀 작업으로 DB에 insert
+# 미국, 중국, 한국의 모든 이벤트
 if 1:
     startTime = timeit.default_timer()
 
-    # Economic Event별 히스토리컬 데이터 크롤링
+    # Economic Event 리스트 select
     datas = db.select_query("SELECT cd, nm_us, link, ctry, period"
                             "  FROM economic_events"
                             " WHERE imp_us in (1,2,3)")
     datas.columns = ['cd', 'nm_us', 'link', 'ctry', 'period']
     #print(type(datas))
 
+    # chromedriver를 이용하여 session 연결
     session = crawling.InvestingEconomicEventCalendar()
 
     for data in datas.iterrows():
@@ -80,13 +84,16 @@ if 1:
         period = data[1]['period']
 
 
-        if cd < 0:
+        # 배치가 중간에 중단된 경우 문제가 발생한 Event 이후부터 시작
+        if cd < 343:
             print('continue: ', nm, link)
             continue
 
-
+        # Event별 Schedule 리스트 크롤링
         cralwing_nm, results = session.GetEventSchedule(link, cd)
         print(cd, nm, cralwing_nm, link, len(results))
+
+        # 크롤링된 Event 이름으로 변경
         if nm != cralwing_nm:
             sql = "UPDATE economic_events" \
                   "   SET nm_us='%s'" \
@@ -98,7 +105,6 @@ if 1:
                 pass
         #print(results)
 
-        # 통계시점에 대한 정보가 없는 경우에 이전 데이터에 대한 정보를 사용해서 추정
         pre_statistics_time = 0
         # 시계역 역순(가장 최근 데이터가 처음)
         for cnt, result in enumerate(results):
@@ -110,20 +116,21 @@ if 1:
                 # 통계시점에 대한 정보가 없는 경우 주기가 monthly인 경우 처리
                 statistics_time = 'NULL' if len(date_splits) <= 3 or date_splits[3] not in calendar_map.keys() else calendar_map[date_splits[3]]
                 if period == 'M':
-                    # 첫 데이터인 경우
+                    # 첫 데이터인 경우 이전달의 값을 역으로 추정
                     if pre_statistics_time == 0:
                         pre_statistics_time = statistics_time + 1 if statistics_time < 12 else 1
 
+                    # 통계시점에 대한 정보가 없는 경우에 이전 데이터에 대한 정보를 사용해서 추정
                     if statistics_time == 'NULL':
                         statistics_time = pre_statistics_time - 1 if pre_statistics_time > 1 else 12
 
                     pre_statistics_time = statistics_time
 
                 time = result['time']
-                # GDP처럼 추정치가 먼저 발표되는 경우는 시간 뒤에 'P'가 붙는다
-                if len(time) > 5:
+                # GDP처럼 추정치가 먼저 발표되는 경우
+                if result['pre_release'] == True:
                     print(nm, result['date'], result['time'])
-                    break
+                    continue
 
                 bold = result['bold']
                 fore = result['fore']
