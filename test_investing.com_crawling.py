@@ -85,7 +85,7 @@ if 1:
 
 
         # 배치가 중간에 중단된 경우 문제가 발생한 Event 이후부터 시작
-        if cd < 343:
+        if cd < 0:
             print('continue: ', nm, link)
             continue
 
