@@ -186,7 +186,7 @@ class WrapDB(object):
 
         return pd.DataFrame(data)
 
-    def insert_query(self, sql, sql_arg):
+    def execute_query(self, sql, sql_arg):
 
         try:
             # 수행

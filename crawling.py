@@ -146,13 +146,14 @@ class InvestingEconomicEventCalendar():
                 result = self.wd.find_element_by_xpath('//*[@id="showMoreHistory%s"]/a' % cd)
                 result.click()
 
-                time.sleep(1)              # 크롤링 로직을 수행하기 위해 5초정도 쉬어준다.
+                time.sleep(0.2)              # 크롤링 로직을 수행하기 위해 5초정도 쉬어준다.
 
             except:
-                print('error: %s' % str(page))
+                #print('error: %s' % str(page))
 
                 html = self.wd.page_source
                 bs = BeautifulSoup(html, 'html.parser')
+                nm = bs.find('body').find('section').find('h1').text
                 tbody = bs.find('tbody')
                 rows = tbody.findAll('tr')
 
@@ -171,7 +172,7 @@ class InvestingEconomicEventCalendar():
 
                     results.append(tmp_rlt)
 
-                return results
+                return nm, results
 
 
 class IndiceHistoricalData():

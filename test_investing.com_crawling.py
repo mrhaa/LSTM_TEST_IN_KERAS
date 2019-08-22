@@ -85,8 +85,17 @@ if 1:
             continue
 
 
-        results = session.GetEventSchedule(link, cd)
-        print(cd, nm, link, len(results))
+        cralwing_nm, results = session.GetEventSchedule(link, cd)
+        print(cd, nm, cralwing_nm, link, len(results))
+        if nm != cralwing_nm:
+            sql = "UPDATE economic_events" \
+                  "   SET nm_us='%s'" \
+                  " WHERE cd=%s"
+            sql_arg = (cralwing_nm, cd)
+
+            if (db.execute_query(sql, sql_arg) == False):
+                # print(sql % sql_arg) # insert 에러 메세지를 보여준다.
+                pass
         #print(results)
 
         # 통계시점에 대한 정보가 없는 경우에 이전 데이터에 대한 정보를 사용해서 추정
@@ -99,7 +108,7 @@ if 1:
                 date_str = str(date(int(date_splits[2]), calendar_map[date_splits[0]], int(date_splits[1])))
                 
                 # 통계시점에 대한 정보가 없는 경우 주기가 monthly인 경우 처리
-                statistics_time = 'NULL' if len(date_splits) <= 3 else calendar_map[date_splits[3]]
+                statistics_time = 'NULL' if len(date_splits) <= 3 or date_splits[3] not in calendar_map.keys() else calendar_map[date_splits[3]]
                 if period == 'M':
                     # 첫 데이터인 경우
                     if pre_statistics_time == 0:
@@ -128,8 +137,9 @@ if 1:
                       "VALUES (%s, '%s', '%s', %s, %s, %s) ON DUPLICATE KEY UPDATE release_time = '%s', statistics_time = %s, bold_value = %s, fore_value = %s"
                 sql_arg = (cd, date_str, time, statistics_time, bold_flt, fore_flt, time, statistics_time, bold_flt, fore_flt)
 
-                if(db.insert_query(sql, sql_arg) == False):
-                    print(sql % sql_arg) # insert 에러 메세지를 보여준다.
+                if(db.execute_query(sql, sql_arg) == False):
+                    #print(sql % sql_arg) # insert 에러 메세지를 보여준다.
+                    pass
 
             except (TypeError, KeyError) as e:
                 print('에러정보 : ', e, file=sys.stderr)
@@ -193,7 +203,7 @@ if 0:
                 sql_arg = (cd, date_str, close, open, high, low, vol, close, open, high, low, vol)
                 #print(sql % sql_arg)
 
-                if (db.insert_query(sql, sql_arg) == False):
+                if (db.execute_query(sql, sql_arg) == False):
                     print(sql % sql_arg)
             except (TypeError, KeyError) as e:
                 print('에러정보 : ', e, file=sys.stderr)
@@ -202,7 +212,7 @@ if 0:
 
 
 if 0:
-    datas = db.select_query("select a.nm_us, a.cd, b.release_date "
+    datas = db.select_query("select a.nm_us, a.cd, b.release_date"
                             "  from economic_events a, economic_events_schedule b"
                             " where a.cd = b.event_cd")
     datas.columns = ['nm_us', 'cd', 'release_date']
@@ -214,14 +224,16 @@ if 0:
 
     total_date = 0
     count = 0
-    for data in datas.iterrows():
+    for idx, data in enumerate(datas.iterrows()):
         try:
             curr_nm_us = data[1]['nm_us']
             curr_cd = data[1]['cd']
             curr_release_date = pd.to_datetime(str(data[1]['release_date']), format="%Y-%m-%d")
 
             if last_cd is not None:
-                if last_cd != curr_cd:
+                if curr_cd == 571:
+                    print(curr_release_date)
+                if last_cd != curr_cd or idx == datas.shape[0]-1:
                     print(str(last_cd), '\t', last_nm_us, '\t', str(total_date/count))
                     total_date = 0
                     count = 0
