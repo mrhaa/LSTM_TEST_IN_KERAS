@@ -130,31 +130,38 @@ class InvestingEconomicEventCalendar():
 
         #self.wd = webdriver.Chrome('chromedriver', chrome_options=self.options)
         self.wd = webdriver.Chrome('/Users/sangjinryu/Downloads/chromedriver', chrome_options=self.options)
+
         self.wd.get('https://www.investing.com')
         time.sleep(60)
 
 
-    def GetEventSchedule(self, url, cd):
+    def GetEventSchedule(self, url, cd, loop_num=float('inf')):
 
         self.wd.get(url)
 
         RESULT_DIRECTORY = '__results__/crawling'
         results = []
+        loop_cnt = 0
         for page in count(1):
             try:
+                # 정해진 횟수만 크롤링
+                if loop_cnt >= loop_num:
+                    raise Exception('loop_cnt: ' % loop_cnt)
+                else:
+                    loop_cnt += 1
+                    
                 script = 'void(0)'  # 사용하는 페이지를 이동시키는 js 코드
                 #self.wd.execute_script(script)  # js 실행
                 result = self.wd.find_element_by_xpath('//*[@id="showMoreHistory%s"]/a' % cd)
                 result.click()
 
-                time.sleep(0.2)              # 크롤링 로직을 수행하기 위해 5초정도 쉬어준다.
-
+                time.sleep(0.5)              # 크롤링 로직을 수행하기 위해 5초정도 쉬어준다.
             except:
                 #print('error: %s' % str(page))
 
                 html = self.wd.page_source
                 bs = BeautifulSoup(html, 'html.parser')
-                nm = bs.find('body').find('section').find('h1').text
+                nm = bs.find('body').find('section').find('h1').text.strip()
                 tbody = bs.find('tbody')
                 rows = tbody.findAll('tr')
 
@@ -164,7 +171,7 @@ class InvestingEconomicEventCalendar():
                     times = row.findAll('td', {'class': 'left'})
                     tmp_rlt['date'] = times[0].text.strip()
                     tmp_rlt['time'] = times[1].text.strip()
-                    tmp_rlt['pre_release'] = True if times[1].find('span') != None and times[1].find('span')['title'] == "Preliminary Release" else False
+                    tmp_rlt['pre_release_yn'] = 1 if times[1].find('span') != None and times[1].find('span')['title'] == "Preliminary Release" else 0
 
                     values = row.findAll('td', {'class': 'noWrap'})
                     tmp_rlt['bold'] = values[0].text.strip()

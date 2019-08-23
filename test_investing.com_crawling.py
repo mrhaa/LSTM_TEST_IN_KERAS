@@ -13,12 +13,12 @@ import sys
 import math
 import copy
 import warnings
-from datetime import datetime
-from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 import crawling
 from crawling import *
 import re
+from datetime import datetime
+from datetime import timedelta
 from datetime import date
 import timeit
 
@@ -128,9 +128,7 @@ if 1:
 
                 time = result['time']
                 # GDP처럼 추정치가 먼저 발표되는 경우
-                if result['pre_release'] == True:
-                    print(nm, result['date'], result['time'])
-                    continue
+                pre_release_yn = result['pre_release_yn']
 
                 bold = result['bold']
                 fore = result['fore']
@@ -140,9 +138,10 @@ if 1:
                 bold_flt = getRealValue(result['bold'])
                 fore_flt = getRealValue(result['fore'])
 
-                sql = "INSERT INTO economic_events_schedule (event_cd, release_date, release_time, statistics_time, bold_value, fore_value) " \
-                      "VALUES (%s, '%s', '%s', %s, %s, %s) ON DUPLICATE KEY UPDATE release_time = '%s', statistics_time = %s, bold_value = %s, fore_value = %s"
-                sql_arg = (cd, date_str, time, statistics_time, bold_flt, fore_flt, time, statistics_time, bold_flt, fore_flt)
+                sql = "INSERT INTO economic_events_schedule (event_cd, release_date, release_time, statistics_time, bold_value, fore_value, pre_release_yn, create_time, update_time) " \
+                      "VALUES (%s, '%s', '%s', %s, %s, %s, %s, now(), now()) " \
+                      "ON DUPLICATE KEY UPDATE release_time = '%s', statistics_time = %s, bold_value = %s, fore_value = %s, pre_release_yn = %s, update_time = now()"
+                sql_arg = (cd, date_str, time, statistics_time, bold_flt, fore_flt, pre_release_yn, time, statistics_time, bold_flt, fore_flt, pre_release_yn)
 
                 if(db.execute_query(sql, sql_arg) == False):
                     #print(sql % sql_arg) # insert 에러 메세지를 보여준다.
@@ -221,7 +220,8 @@ if 0:
 if 0:
     datas = db.select_query("select a.nm_us, a.cd, b.release_date"
                             "  from economic_events a, economic_events_schedule b"
-                            " where a.cd = b.event_cd")
+                            " where a.cd = b.event_cd"
+                            "   and b.pre_release_yn = 0")
     datas.columns = ['nm_us', 'cd', 'release_date']
 
 
@@ -231,6 +231,7 @@ if 0:
 
     total_date = 0
     count = 0
+    date_list = []
     for idx, data in enumerate(datas.iterrows()):
         try:
             curr_nm_us = data[1]['nm_us']
@@ -238,15 +239,16 @@ if 0:
             curr_release_date = pd.to_datetime(str(data[1]['release_date']), format="%Y-%m-%d")
 
             if last_cd is not None:
-                if curr_cd == 571:
-                    print(curr_release_date)
                 if last_cd != curr_cd or idx == datas.shape[0]-1:
-                    print(str(last_cd), '\t', last_nm_us, '\t', str(total_date/count))
+                    print(str(last_cd), '\t', last_nm_us, '\t', str(total_date/count), '\t', str(sorted(date_list)[int(len(date_list)/10)]), '\t', str(sorted(date_list)[-int(len(date_list)/10)]), '\t', str(len(date_list)))
                     total_date = 0
                     count = 0
+                    date_list = []
                 else:
-                    total_date += (curr_release_date - last_release_date).days
+                    days = (curr_release_date - last_release_date).days
+                    total_date += days
                     count += 1
+                    date_list.append(days)
 
             last_nm_us = curr_nm_us
             last_cd = curr_cd
