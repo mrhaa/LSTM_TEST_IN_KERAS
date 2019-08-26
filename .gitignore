@@ -2,3 +2,4 @@
 a.csv
 *.pickle
 *.pyc
+chromedriver.exe
