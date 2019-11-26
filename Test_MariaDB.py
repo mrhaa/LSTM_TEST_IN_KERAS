@@ -71,7 +71,7 @@ class WrapDB(object):
 
     def select(self):
         sql = "SELECT a.date, a.value, b.value" \
-              "  FROM value a, value b" \
+              "  FROM ivalues a, ivalues b" \
               " WHERE a.date = b.date" \
               "   AND a.item_cd = 1" \
               "   AND b.item_cd = 2" \
@@ -100,7 +100,7 @@ class WrapDB(object):
         # AND a.original = 1 부분은 배치에 따라 가감된다.
         sql = "SELECT a.cd, a.nm, count(*), min(date), max(date)" \
               "  FROM item as a" \
-              "  LEFT JOIN value AS b" \
+              "  LEFT JOIN ivalues AS b" \
               "    ON a.cd = b.item_cd" \
               " WHERE a.use_yn in (1, 2)" \
               " GROUP BY a.cd, a.nm" \
@@ -118,12 +118,12 @@ class WrapDB(object):
 
         if start_date == None and end_date == None:
             sql = "SELECT a.cd, a.nm, b.date, b.value"\
-                  "  FROM item AS a, value AS b"\
+                  "  FROM item AS a, ivalues AS b"\
                   " WHERE a.cd = b.item_cd"\
                   "   AND a.cd in (%s)"
         else:
             sql = "SELECT a.cd, a.nm, b.date, b.value" \
-                  "  FROM item AS a, value AS b" \
+                  "  FROM item AS a, ivalues AS b" \
                   " WHERE a.cd = b.item_cd" \
                   "   AND a.cd in (%s)" \
                   "   AND b.date >= '%s'" \
@@ -154,12 +154,12 @@ class WrapDB(object):
 
         if start_date == None and end_date == None:
             sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.high, b.low, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy"\
-                  "  FROM item AS a, value AS b"\
+                  "  FROM item AS a, ivalues AS b"\
                   " WHERE a.cd = b.item_cd"\
                   "   AND a.cd in (%s)"
         else:
             sql = "SELECT a.cd, a.nm, b.date, b.open, b.close, b.high, b.low, b.volume, b.market_capitalization, b.company_net_buy, b.foreigner_net_buy" \
-                  "  FROM item AS a, value AS b" \
+                  "  FROM item AS a, ivalues AS b" \
                   " WHERE a.cd = b.item_cd" \
                   "   AND a.cd in (%s)" \
                   "   AND b.date >= '%s'" \
@@ -220,14 +220,12 @@ class WrapDB(object):
 
             return False
 
-    def insert_bloomberg_value(self, item_cd, date, value):
+    def insert_bloomberg_value(self, item_cd, date, ivalues):
 
-        # 최종 update 시간
-        timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-
-        sql = "INSERT INTO value (date, item_cd, value, create_tm, update_tm) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE value=%s, update_tm=%s"
-        sql_arg = (date, item_cd, value, timestamp, timestamp, value, timestamp)
-
+        sql = "INSERT INTO ivalues (date, item_cd, value, create_tm, update_tm) " \
+              "VALUES (%s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE value=%s, update_tm=now()"
+        sql_arg = (date, item_cd, ivalues, ivalues)
+        #print(sql % sql_arg)
         try:
             # 수행
             self.cursor.execute(sql, sql_arg)
@@ -242,38 +240,38 @@ class WrapDB(object):
 
             return False
 
-    def insert_quantiwise_value(self, item_cd, date, value, type):
+    def insert_quantiwise_value(self, item_cd, date, ivalues, type):
 
         # 최종 update 시간
         timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
         # '주식_시가','주식_종가','주식_거래량','주식_시가총액'
         if type == '주식_시가':
-            sql = "INSERT INTO value (date, item_cd, open, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, open, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE open=%s, update_tm=%s"
         elif type == '주식_종가':
-            sql = "INSERT INTO value (date, item_cd, close, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, close, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE close=%s, update_tm=%s"
         elif type == '주식_고가':
-            sql = "INSERT INTO value (date, item_cd, high, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, high, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE high=%s, update_tm=%s"
         elif type == '주식_저가':
-            sql = "INSERT INTO value (date, item_cd, low, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, low, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE low=%s, update_tm=%s"
         elif type == '주식_거래량':
-            sql = "INSERT INTO value (date, item_cd, volume, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, volume, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE volume=%s, update_tm=%s"
         elif type == '주식_시가총액':
-            sql = "INSERT INTO value (date, item_cd, market_capitalization, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, market_capitalization, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE market_capitalization=%s, update_tm=%s"
         elif type == '주식_기관순매수':
-            sql = "INSERT INTO value (date, item_cd, company_net_buy, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, company_net_buy, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE company_net_buy=%s, update_tm=%s"
         elif type == '주식_외인순매수':
-            sql = "INSERT INTO value (date, item_cd, foreigner_net_buy, create_tm, update_tm)" \
+            sql = "INSERT INTO ivalues (date, item_cd, foreigner_net_buy, create_tm, update_tm)" \
                   "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE foreigner_net_buy=%s, update_tm=%s"
         #print (sql)
-        sql_arg = (date, item_cd, value, timestamp, timestamp, value, timestamp)
+        sql_arg = (date, item_cd, ivalues, timestamp, timestamp, ivalues, timestamp)
 
         try:
             # 수행
@@ -302,35 +300,31 @@ class WrapDB(object):
         tmp_df = pd.DataFrame(data)
         nm_cd_map = {}
         for idx in tmp_df.index:
-            nm_cd_map[tmp_df[0].values[idx]] = tmp_df[1].values[idx]
+            nm_cd_map[tmp_df[0].values[idx]] = int(tmp_df[1].values[idx])
 
         return nm_cd_map
 
     def insert_folione_signal(self, table_nm, date_info, target_cd, factor_info, signal_cd, etc):
 
-        # 최종 update 시간
-        timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-
         # Factor의 갯수가 1~10개로 유동적임
         sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", factor_cd" + str(idx)
-        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, update_tm) "
-        sql = sql + "VALUES (%s, %s, %s, %s, %s, %s"
+        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s"
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", %s"
-        sql = sql + ", %s, %s, %s, %s, %s, %s)"
-        sql = sql +  "ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=%s"
+        sql = sql + ", %s, %s, %s, %s, %s, now())"
+        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
 
         sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
-            sql_arg += [int(factor_info['factors_cd'][idx])]
-        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], etc['term_type'], timestamp]
-        sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit'], timestamp]
+            sql_arg += [factor_info['factors_cd'][idx]]
+        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], etc['term_type']]
+        sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit']]
         sql_arg = tuple(sql_arg)
 
-        #print(sql)
-        #print(sql_arg)
+        #print(sql % sql_arg)
 
         try:
             # 수행
@@ -348,20 +342,17 @@ class WrapDB(object):
 
     def insert_factor_signal(self, date_info, target_cd, factor_cd, signal_cd, etc):
 
-        # 최종 update 시간
-        timestamp = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
-
         # Factor의 갯수가 1~10개로 유동적임
         sql = "INSERT INTO result_factor (start_dt, end_dt, curr_dt, target_cd, factor_cd, window_size, signal_cd, factor_profit, index_profit, term_type, update_tm)"
-        sql = sql + "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-        sql = sql +  "ON DUPLICATE KEY UPDATE signal_cd=%s, factor_profit=%s, index_profit=%s, update_tm=%s"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())"
+        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, factor_profit=%s, index_profit=%s, update_tm=now()"
 
-        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, etc['factor_profit'], etc['index_profit'], etc['term_type'], timestamp]
-        sql_arg += [signal_cd, etc['factor_profit'], etc['index_profit'], timestamp]
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, etc['factor_profit'], etc['index_profit'], etc['term_type']]
+        sql_arg += [signal_cd, etc['factor_profit'], etc['index_profit']]
         sql_arg = tuple(sql_arg)
 
-        #print(sql)
-        #print(sql_arg)
+        #print(sql % sql_arg)
+
         try:
             # 수행
             self.cursor.execute(sql, sql_arg)
@@ -377,6 +368,7 @@ class WrapDB(object):
             return False
 
     def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size):
+
         sql = "DELETE " \
               "FROM %s " \
               "WHERE target_cd = %s" \

@@ -453,21 +453,20 @@ class Folione (object):
                             pass
 
                     # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
-                    
                     if self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
                         print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
                               #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
                               self.model_accumulated_profits[index_nm][column_nm], '\t',
                               self.bm_accumulated_profits[index_nm][column_nm])
-                    
+
                     # Factor result DB 저장
                     if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
-                        date_info = {'start_dt': self.profit_calc_start_date, 'end_dt': self.profit_calc_end_date,'curr_dt': row_nm}
+                        date_info = {'start_dt': str(self.profit_calc_start_date), 'end_dt': str(self.profit_calc_end_date),'curr_dt': row_nm}
                         target_cd = factors_nm_cd_map[index_nm]
                         factor_cd = factors_nm_cd_map[column_nm]
                         signal_cd = 1 if model_signal == "BUY" else 0
-                        etc = {'window_size': self.window_size, 'factor_profit': self.model_accumulated_profits[index_nm][column_nm],
-                               'index_profit': self.bm_accumulated_profits[index_nm][column_nm], 'term_type': self.simulation_term_type}
+                        etc = {'window_size': self.window_size, 'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]),
+                               'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]), 'term_type': self.simulation_term_type}
 
                         # 마지막 Signal만 저장
                         if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
@@ -833,11 +832,11 @@ class Folione (object):
 
                                     # 시그널 DB 저장
                                     if self.save_signal_process_db == True or (self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date)):
-                                        date_info = {'start_dt': self.profit_calc_start_date,'end_dt': self.profit_calc_end_date, 'curr_dt': row_nm}
+                                        date_info = {'start_dt': str(self.profit_calc_start_date),'end_dt': str(self.profit_calc_end_date), 'curr_dt': row_nm}
                                         target_cd = factors_nm_cd_map[index_nm]
                                         factor_info = {'factors_num': len(signal_factors_list),'multi_factors_nm': signal_factors_nm,'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
                                         signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
-                                        etc = {'window_size': self.window_size, 'model_profit': accumulated_model_profit, 'bm_profit': accumulated_bm_profit, 'term_type': self.simulation_term_type}
+                                        etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type}
 
                                         # 발생하는 모든 과정의 Signal을 저장
                                         if self.save_signal_process_db == True:
