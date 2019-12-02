@@ -42,6 +42,13 @@ def SaveExcelFiles(file='test.xlsx', obj_dict=None):
 
     return True
 
+def SaveCSVFiles(file='test.csv', obj=None):
+
+    obj.to_csv(file, mode='w', header=True)
+
+    return True
+
+
 def GetSlope(X, Y):
     Ym1 = list()
     Xmn = list()

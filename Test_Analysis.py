@@ -39,7 +39,7 @@ save_datas_excel = True
 save_correlations_txt = True
 
 # Signal DB 저장 여부
-save_signal_process_db = False
+save_signal_process_db = True
 save_signal_last_db = True
 
 # 데이터 분석
@@ -51,15 +51,18 @@ do_figure = False
 
 if __name__ == '__main__':
 
+    # Simulation 기간 타입
+    # 1: 장기, 2: 중기, 3: 단기
+    # 장기: 2001-01-01 부터 (IT 버블 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(223 Factors)
+    # 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
+    # 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
+    simulation_term_type = 3
+
+    # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
     #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2018-08-31']
+    back_test_dates = ['2019-10-31']
+
     for back_test_date in back_test_dates:
-        # Simulation 기간 타입
-        # 1: 장기, 2: 중기, 3: 단기
-        # 장기: 2001-01-01 부터 (IT 버블 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(223 Factors)
-        # 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
-        # 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
-        simulation_term_type = 3
         if simulation_term_type == 1:
             simulation_start_date = '2001-01-01'
         elif  simulation_term_type == 2:
@@ -67,22 +70,24 @@ if __name__ == '__main__':
         elif simulation_term_type == 3:
             simulation_start_date = '2012-01-01'
         simulation_end_date = back_test_date
-        #simulation_end_date = '2018-07-31'
+
 
         # Z-Score 생성의 경우 과거 추가 기간이 필요함.
-        # Z-Score의 최대 기간과 동일 (월 단위)
+        # Z-Score의 최대 기간과 동일(월 단위)
         raw_data_spare_term = 36
 
+        # DB에서 Raw 데이터를 읽어서 전처리하는 경우
         if use_datas_pickle == False:
             # Wrap운용팀 DB Connect
             db = WrapDB()
             db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
 
+
             # 데이터 전처리 instance 생성
             preprocess = Preprocess()
 
             # 데이터 Info Read
-            data_info = db.get_data_info()
+            data_info = db.get_data_info(min_num=raw_data_spare_term)
             preprocess.SetDataInfo(data_info=data_info, data_info_columns=["아이템코드", "아이템명", "개수", "시작일", "마지막일"])
 
             # Factor 별 데이터가 존재하는 기간 설정
@@ -99,15 +104,23 @@ if __name__ == '__main__':
             preprocess.MakeSampledDatas(sampling_type='M', index='날짜', columns='아이템명', values='값')
 
             # 유효한 데이터 가장 최근 값으로 채움
-            preprocess.FillValidData(look_back_days=10)
+            # 예를 틀어 월말일이 휴일인 경우 해당 값이 비어있으면 직전영업 값을 찾아서 넣어줌.
+            # 모델을 위한 데이터의 주기가 1달이기 때문에 27일까지만 look back함.
+            preprocess.FillValidData(look_back_days=27)
 
             # 유효하지 않은 기간의 데이터 삭제
             # drop_basis_from: '2007-01-31', drop_basis_to: '가장 최근 말일'는 가장 유효한 factor를 많이 사용할 수 있는 기간을 찾아 적용하였음.
             #pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2001-01-01', drop_basis_to='2018-03-31')
             print("simulation_start_date: ", simulation_start_date, str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)))
-            pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)), drop_basis_to=simulation_end_date)
-            Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx' % (simulation_term_type, back_test_date), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
 
+            # factor에 따라 발표 시점에 lag가 있어 shift가 필요한 경우들이 있음.
+            # lag때문에 사용하지 못하게 되는 factor가 많기 때문에 관련 내용을 처리할 수 있도록 수정이 필요
+            lag_shift_yn = True
+            pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term))
+                                                               , drop_basis_to=simulation_end_date, lag_shift_yn=lag_shift_yn)
+
+            Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx' % (simulation_term_type, back_test_date), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
+            Wrap_Util.SaveCSVFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
             Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
         else:
             pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date))
@@ -239,10 +252,9 @@ if __name__ == '__main__':
             Test_Figure.Figure_2D_NoClass(pivoted_sampled_datas, 'Original', ['BOJ자산','FED자산'], color)
             Test_Figure.Figure_2D_NoClass(principalDf, '2 Component PCA', ['principal component 1', 'principal component 2'], color)
 
-
+        # DB에서 Raw 데이터를 읽어서 전처리하는 경우
         if use_datas_pickle == False:
             # Wrap운용팀 DB Disconnect
             db.disconnect()
-
 
 

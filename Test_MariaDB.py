@@ -96,15 +96,17 @@ class WrapDB(object):
         return pd.DataFrame(data)
 
 
-    def get_data_info(self):
+    def get_data_info(self, min_num=1):
         # AND a.original = 1 부분은 배치에 따라 가감된다.
+        # use_yn이 0인 경우는 데이터가 더이상 블룸버그에서 정상적으로 서비스되지 않는 상태
+        # use_yn이 1인 경우는 데이터가 분기에 한번씩 발생하여 Folione에는 적합하지 않은 factor
+        # use_yn이 1인 경우는 정상 케이스
         sql = "SELECT a.cd, a.nm, count(*), min(date), max(date)" \
-              "  FROM item as a" \
-              "  LEFT JOIN ivalues AS b" \
-              "    ON a.cd = b.item_cd" \
-              " WHERE a.use_yn in (1, 2)" \
+              "  FROM item AS a, ivalues AS b" \
+              " WHERE a.cd = b.item_cd" \
+              "   AND a.use_yn in (2)" \
               " GROUP BY a.cd, a.nm" \
-              " HAVING COUNT(*) > 1"
+              " HAVING COUNT(*) > %s" % (min_num)
         sql_arg = None
 
         # 수행
@@ -114,23 +116,10 @@ class WrapDB(object):
 
         return pd.DataFrame(data)
 
+    # DB에서 블룸버그에서 수신한 Raw 데이터를 받음.
     def get_bloomberg_datas(self, data_list, start_date = None, end_date = None):
-
-        if start_date == None and end_date == None:
-            sql = "SELECT a.cd, a.nm, b.date, b.value"\
-                  "  FROM item AS a, ivalues AS b"\
-                  " WHERE a.cd = b.item_cd"\
-                  "   AND a.cd in (%s)"
-        else:
-            sql = "SELECT a.cd, a.nm, b.date, b.value" \
-                  "  FROM item AS a, ivalues AS b" \
-                  " WHERE a.cd = b.item_cd" \
-                  "   AND a.cd in (%s)" \
-                  "   AND b.date >= '%s'" \
-                  "   AND b.date <= '%s'"
-
-        sql_arg = None
-
+        
+        # factor 리스트를 String형태의 Array로 만든다
         target_list = None
         for idx, ele in enumerate(data_list):
             if idx == 0:
@@ -139,16 +128,26 @@ class WrapDB(object):
                 target_list += ", " + str(ele)
 
         if start_date == None and end_date == None:
-            sql = sql % (target_list)
+            sql = "SELECT a.cd, a.nm, b.date, b.value"\
+                  "  FROM item AS a, ivalues AS b"\
+                  " WHERE a.cd = b.item_cd"\
+                  "   AND a.cd in (%s)" % (target_list)
         else:
-            sql = sql % (target_list, start_date, end_date)
-        #print (sql)
+            sql = "SELECT a.cd, a.nm, b.date, b.value" \
+                  "  FROM item AS a, ivalues AS b" \
+                  " WHERE a.cd = b.item_cd" \
+                  "   AND a.cd in (%s)" \
+                  "   AND b.date >= '%s'" \
+                  "   AND b.date <= '%s'" % (target_list, start_date, end_date)
+        sql_arg = None
+
         # 수행
         self.cursor.execute(sql, sql_arg)
 
         data = self.cursor.fetchall()
 
         return pd.DataFrame(data)
+
 
     def get_quantiwise_datas(self, data_list, start_date = None, end_date = None):
 

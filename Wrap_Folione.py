@@ -36,8 +36,11 @@ class Preprocess (object):
 
     def SetDataInfo(self, data_info, data_info_columns, data_list=None):
 
+        # 정상적인 상황
         if data_list == None:
             self.data_info = data_info
+        # 예외적인 상황
+        # 관련 로직에 대한 확인 필요(2019-11-28, 류상진)
         else:
             self.data_info = pd.DataFrame(columns=data_info.columns)
             count = 0
@@ -51,6 +54,7 @@ class Preprocess (object):
         self.data_info.columns = data_info_columns
 
 
+    # 최대한 많은 factor를 사용하기 위해 데이터가 존재하는 공통기간을 찾음.
     def MakeDateRange(self, start_date, last_date):
 
         for ele in self.data_info:
@@ -94,7 +98,7 @@ class Preprocess (object):
 
 
     def MakeSampledDatas(self, sampling_type, index, columns, values):
-        
+
         # date type의 날짜 속성 추가
         self.datas["날짜T"] = self.datas[index].apply(lambda x: pd.to_datetime(str(x), format="%Y-%m-%d"))
         # datas.set_index(datas['날짜T'], inplace=True)
@@ -141,6 +145,7 @@ class Preprocess (object):
                 #if row_nm == '1996-02-26' and column_nm == '상해종합':
                 #    print(1)
 
+                # 월말 데이터가 없는경우
                 if math.isnan(self.pivoted_sampled_datas[column_nm][row_nm]) == True:
                     # print (column_nm, "\t", row_nm, "\t", pivoted_sampled_datas[column_nm][row_nm])
 
@@ -153,55 +158,114 @@ class Preprocess (object):
                             if math.isnan(self.pivoted_reference_datas[column_nm][ref_row_nm]) == True:
                                 # print("No Data", str(ref_row_nm))
                                 ref_row_nm = str(datetime.strptime(ref_row_nm, '%Y-%m-%d').date() - timedelta(days=1))
+
+                            # 가장 최신 데이터를 찾은 경우
                             else:
-                                self.pivoted_sampled_datas[column_nm][row_nm] = self.pivoted_reference_datas[column_nm][ref_row_nm]
+                                self.pivoted_sampled_datas[column_nm][row_nm] = float(self.pivoted_reference_datas[column_nm][ref_row_nm])
+                                break
+
                         except KeyError:
                             # print("KeyError", str(ref_row_nm))
                             ref_row_nm = str(datetime.strptime(ref_row_nm, '%Y-%m-%d').date() - timedelta(days=1))
 
+                # 불필요한 작업이라 삭제예정(2019-11-29, 류상진)
+                '''
                 # 이후 연산작업을 위해 decimal을 float 형태로 변경
                 if math.isnan(self.pivoted_sampled_datas[column_nm][row_nm]) == False:
                     self.pivoted_sampled_datas[column_nm][row_nm] = float(self.pivoted_sampled_datas[column_nm][row_nm])
+                '''
 
         return copy.deepcopy(self.pivoted_sampled_datas)
 
 
-    def DropInvalidData(self, drop_basis_from, drop_basis_to):
+    def DropInvalidData(self, drop_basis_from, drop_basis_to, lag_shift_yn=False):
 
-        # 유효하지 않은 기간 drop
+        # 데이터 유효기간 정의
         drop_basis_from = datetime.strptime(drop_basis_from, '%Y-%m-%d').date()
         drop_basis_to = datetime.strptime(drop_basis_to, '%Y-%m-%d').date()
-        pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
 
-        # 유효기간을 벗어난 데이터 삭제
-        for row_nm in pivoted_sampled_datas_cp.index:
-            data_time = datetime.strptime(row_nm, '%Y-%m-%d').date()
-            if data_time < drop_basis_from or data_time > drop_basis_to:
-                # print (row_nm)
-                self.pivoted_sampled_datas.drop(index=row_nm, inplace=True)
+        # lag가 있는 factor는 평가일로 shift 시킴
+        if lag_shift_yn == True:
 
-        # 유효하지 않은 팩터 drop
-        total_omission_threshold = 1
-        last_omission_threshold = 1
-        last_considerable_num = 6
-        pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
-        for column_nm in pivoted_sampled_datas_cp.columns:
-            # 전체 유효기간 중 데이터가 없는 갯수
-            total_null_cnt = pivoted_sampled_datas_cp[column_nm].isnull().sum()
-            # 유효기간 중 마지막 특정 기간 내 데이터가 없는 갯수
-            last_null_cnt = pivoted_sampled_datas_cp[column_nm][-last_considerable_num:].isnull().sum()
+            # 데이터 오류에 의해 미래 데이터에 의해 shift되는 경우 삭제
+            pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
+            for row_nm in pivoted_sampled_datas_cp.index:
+                data_time = datetime.strptime(row_nm, '%Y-%m-%d').date()
+                if data_time > drop_basis_to:
+                    self.pivoted_sampled_datas.drop(index=row_nm, inplace=True)
 
-            if total_null_cnt > total_omission_threshold or last_null_cnt > last_omission_threshold:
-                # print('유효하지 않은 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
-                self.pivoted_sampled_datas.drop(columns=column_nm, inplace=True)
-            elif total_null_cnt:
-                # print('유효한 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
-                for idx, row_nm in enumerate(self.pivoted_sampled_datas.index):
-                    if math.isnan(self.pivoted_sampled_datas[column_nm][row_nm]) == True:
-                        if idx == 0:
-                            self.pivoted_sampled_datas[column_nm][idx] = self.pivoted_sampled_datas[column_nm][idx + 1]
+            # lag가 발생한 factor는 먼저 shift 시킴
+            pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
+            for column_nm in pivoted_sampled_datas_cp.columns:
+                if math.isnan(pivoted_sampled_datas_cp[column_nm][-1]) == True:
+                    lag_count = 0
+                    for i in range(1, 13):
+                        if math.isnan(pivoted_sampled_datas_cp[column_nm][-i]) == True:
+                            lag_count += 1
                         else:
-                            self.pivoted_sampled_datas[column_nm][idx] = self.pivoted_sampled_datas[column_nm][idx - 1]
+                            break
+
+                    self.pivoted_sampled_datas[column_nm] = pivoted_sampled_datas_cp[column_nm].shift(periods=lag_count)
+
+            self.pivoted_sampled_datas = self.pivoted_sampled_datas.fillna(method='ffill', limit=1)
+
+            # 유효기간을 벗어난 데이터 삭제
+            pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
+            for row_nm in pivoted_sampled_datas_cp.index:
+                data_time = datetime.strptime(row_nm, '%Y-%m-%d').date()
+                if data_time < drop_basis_from:
+                    self.pivoted_sampled_datas.drop(index=row_nm, inplace=True)
+
+            # 3개월 이상 데이터가 누락된 경우 삭제
+            pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
+            for column_nm in pivoted_sampled_datas_cp.columns:
+                empty_cnt = 0
+                for row_nm in pivoted_sampled_datas_cp.index:
+                    if math.isnan(pivoted_sampled_datas_cp[column_nm][row_nm]) == True:
+                        empty_cnt += 1
+                    else:
+                        empty_cnt = 0
+                    
+                    # 3개월 연속으로 데이터 누락이 발생하면 해당 factor 삭제
+                    if empty_cnt >= 3:
+                        self.pivoted_sampled_datas.drop(columns=column_nm, inplace=True)
+                        break
+             
+            # 마지막으로 누락된 데이터는 이전달 데이터를 복사함
+            self.pivoted_sampled_datas = self.pivoted_sampled_datas.fillna(method='ffill')
+
+
+        # lag가 있는 factor는 제외시킴
+        else:
+            # 유효기간을 벗어난 데이터 삭제
+            pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
+            for row_nm in pivoted_sampled_datas_cp.index:
+                data_time = datetime.strptime(row_nm, '%Y-%m-%d').date()
+                if data_time < drop_basis_from or data_time > drop_basis_to:
+                    self.pivoted_sampled_datas.drop(index=row_nm, inplace=True)
+
+            # 유효하지 않은 팩터 drop
+            total_omission_threshold = 1
+            last_omission_threshold = 1
+            last_considerable_num = 6
+            pivoted_sampled_datas_cp = copy.deepcopy(self.pivoted_sampled_datas)
+            for column_nm in pivoted_sampled_datas_cp.columns:
+                # 전체 유효기간 중 데이터가 없는 갯수
+                total_null_cnt = pivoted_sampled_datas_cp[column_nm].isnull().sum()
+                # 유효기간 중 마지막 특정 기간 내 데이터가 없는 갯수
+                last_null_cnt = pivoted_sampled_datas_cp[column_nm][-last_considerable_num:].isnull().sum()
+    
+                if total_null_cnt > total_omission_threshold or last_null_cnt > last_omission_threshold:
+                    # print('유효하지 않은 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
+                    self.pivoted_sampled_datas.drop(columns=column_nm, inplace=True)
+                elif total_null_cnt:
+                    # print('유효한 누락\t', column_nm, '\t', total_null_cnt, '\t', last_null_cnt)
+                    for idx, row_nm in enumerate(self.pivoted_sampled_datas.index):
+                        if math.isnan(self.pivoted_sampled_datas[column_nm][row_nm]) == True:
+                            if idx == 0:
+                                self.pivoted_sampled_datas[column_nm][idx] = self.pivoted_sampled_datas[column_nm][idx + 1]
+                            else:
+                                self.pivoted_sampled_datas[column_nm][idx] = self.pivoted_sampled_datas[column_nm][idx - 1]
 
         return self.pivoted_sampled_datas
 
