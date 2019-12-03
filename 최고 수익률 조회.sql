@@ -1,33 +1,33 @@
-select a.start_dt
-     , a.end_dt
-     , c.nm
-     , a.multi_factors_nm
-     , a.window_size
-     , a.signal_cd
-     , a.model_profit
-     , a.bm_profit
-     , a.term_type
-     , a.factors_num
-     , n.nm
-     , d.factor_profit - d.index_profit
-     , o.nm
-     , e.factor_profit - e.index_profit
-     , p.nm
-     , f.factor_profit - f.index_profit
-     , q.nm
-     , g.factor_profit - g.index_profit
-     , r.nm
-     , h.factor_profit - h.index_profit
-     , s.nm
-     , i.factor_profit - i.index_profit
-     , t.nm
-     , j.factor_profit - j.index_profit
-     , u.nm
-     , k.factor_profit - k.index_profit
-     , v.nm
-     , l.factor_profit - l.index_profit
-     , w.nm
-     , m.factor_profit - m.index_profit
+select a.start_dt AS "시물 시작일"
+     , a.end_dt AS "시뮬 기준일"
+     , c.nm AS "타겟 INDEX"
+     , a.multi_factors_nm AS "멀티펙터"
+     , a.window_size AS "Z-Score 샘플크기"
+     , a.signal_cd AS "SIGNAL"
+     , a.model_profit AS "모델 수익률(누적)"
+     , a.bm_profit AS "INDEX 수익률(누적)"
+     , a.term_type AS "모델 기간타입"
+     , a.factors_num AS "펙터수(최대10)"
+     , n.nm AS "1번 펙터"
+     , d.factor_profit - d.index_profit AS "1번 수익률"
+     , o.nm AS "2번 펙터"
+     , e.factor_profit - e.index_profit AS "2번 수익률"
+     , p.nm AS "3번 펙터"
+     , f.factor_profit - f.index_profit AS "3번 수익률"
+     , q.nm AS "4번 펙터"
+     , g.factor_profit - g.index_profit AS "4번 수익률"
+     , r.nm AS "5번 펙터"
+     , h.factor_profit - h.index_profit AS "5번 수익률"
+     , s.nm AS "6번 펙터"
+     , i.factor_profit - i.index_profit AS "6번 수익률"
+     , t.nm AS "7번 펙터"
+     , j.factor_profit - j.index_profit AS "7번 수익률"
+     , u.nm AS "8번 펙터"
+     , k.factor_profit - k.index_profit AS "8번 수익률"
+     , v.nm AS "9번 펙터"
+     , l.factor_profit - l.index_profit AS "9번 수익률"
+     , w.nm AS "10번 펙터"
+     , m.factor_profit - m.index_profit AS "10번 수익률"
 from result_last a
 LEFT JOIN result_factor AS d
 	ON a.factor_cd0 = d.factor_cd
@@ -117,11 +117,10 @@ LEFT JOIN item AS w
 		  , max(model_profit) as 'model_profit'
 	from result_last
 	where start_dt in ('2012-01-01')
-	and end_dt = '2018-08-31'
+	and end_dt = '2019-11-30'
 	group by start_dt, end_dt, target_cd, term_type
 ) b
 , item c
-
 where a.start_dt = b.start_dt
 and a.end_dt = b.end_dt
 and a.target_cd = b.target_cd

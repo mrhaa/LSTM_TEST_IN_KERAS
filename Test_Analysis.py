@@ -1,6 +1,6 @@
 #_*_ coding: utf-8 _*_
 
-import win32com.client
+#import win32com.client
 from Test_MariaDB import WrapDB
 import pandas as pd
 import numpy as np
@@ -36,10 +36,10 @@ use_parallel_process = True
 
 # Debug 데이터 생성 여부
 save_datas_excel = True
-save_correlations_txt = True
+save_correlations_txt = False
 
 # Signal DB 저장 여부
-save_signal_process_db = True
+save_signal_process_db = False
 save_signal_last_db = True
 
 # 데이터 분석
@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
     #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2019-10-31']
+    back_test_dates = ['2019-11-30']
 
     for back_test_date in back_test_dates:
         if simulation_term_type == 1:
