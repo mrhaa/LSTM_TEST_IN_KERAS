@@ -974,14 +974,17 @@ class Folione (object):
         corr_max = {}
 
         if self.use_correlation_pickle == False:
-            # rolling corr 계산
+
+            # Wrap운용팀 DB Connect
+            db = WrapDB()
+            db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
 
             if self.save_correlations_txt == True:
                 f = open(".\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.txt" % (self.target_index_nm, self.simulation_term_type, self.window_size), 'w')
 
             # 상관관계를 계산할 때 raw data 또는 Z-Score를 사용할 지 선택
             # Raw Data = 0, Z-Score = 1
-            use_data_type = 1
+            use_data_type = 0
             using_data = self.zscore_data if use_data_type else self.raw_data
 
             # column_nm_1은 Target Index
@@ -1010,12 +1013,47 @@ class Folione (object):
                         for rolling_month in range(max_lag_term + 1):
 
                             # 문법상 첫번째 구간(Factor와 Target Index의 lag 없이 동일 시점 적용)은 그냥 처리해야 함
+                            target_data = using_data[column_nm_1][-self.window_size:]
                             if rolling_month == 0:
                                 # pandas의 correation 계산이 안돼 numpy로 변경, 향후 오류 원인 확인 필요
-                                self.rolling_correlations[column_nm_1][column_nm_2][rolling_month] = numpy.corrcoef(using_data[column_nm_1][-self.window_size:].tolist(), using_data[column_nm_2][-self.window_size:].tolist())[0][1]
+                                factor_data = using_data[column_nm_2][-self.window_size:]
                             else:
-                                # pandas의 correation 계산이 안돼 numpy로 변경, 향후 오류 원인 확인 필요
-                                self.rolling_correlations[column_nm_1][column_nm_2][rolling_month] = numpy.corrcoef(using_data[column_nm_1][-self.window_size:].tolist(), using_data[column_nm_2][-(self.window_size + rolling_month):-rolling_month].tolist())[0][1]
+                                factor_data = using_data[column_nm_2][-(self.window_size + rolling_month):-rolling_month]
+
+                            self.rolling_correlations[column_nm_1][column_nm_2][rolling_month] = numpy.corrcoef(target_data.tolist(),factor_data.tolist())[0][1]
+
+                            # corr을 DB에 저장
+                            if math.isnan(self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]) == False:
+
+                                dates = target_data.index
+
+                                hit_ratio = 0.0
+                                hit_yn_data = [0]*len(dates)
+
+                                for i, date in enumerate(dates):
+                                    target_val = target_data[i]
+                                    factor_val = factor_data[i]
+
+                                    if i > 0:
+                                        if (target_val > prev_target_val and factor_val > prev_factor_val) or (target_val < prev_target_val and factor_val < prev_factor_val):
+                                            hit_ratio += 1
+                                            hit_yn_data[i] = 1
+
+                                    prev_target_val = target_val
+                                    prev_factor_val = factor_val
+
+                                hit_ratio = hit_ratio / (len(dates) - 1)
+
+                                # corr 계산값 저장
+                                db.insert_corr(column_nm_1, column_nm_2, str(self.profit_calc_end_date), rolling_month, self.window_size
+                                               , float(self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]), float(hit_ratio)
+                                               , use_data_type)
+
+                                # corr 계산에 사용된 law 데이터 저장
+                                db.insert_corr_law_data(column_nm_1, column_nm_2, str(self.profit_calc_end_date),
+                                                        rolling_month, self.window_size , target_data, factor_data, hit_yn_data
+                                                        , use_data_type)
+
 
                             # Correlation을 통해 lag와 상관성(정,역) 확인
                             if math.isnan(self.rolling_correlations[column_nm_1][column_nm_2][rolling_month]) == False:
@@ -1058,6 +1096,9 @@ class Folione (object):
             if self.save_datas_excel:
                 Wrap_Util.SaveExcelFiles(file='.\\pickle\\rolling_corr_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
                                               % (self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size) , obj_dict={'corr': self.corr})
+
+            # Wrap운용팀 DB Disconnect
+            db.disconnect()
 
         else:
             self.rolling_correlations = Wrap_Util.ReadPickleFile(file='.\\pickle\\rolling_corr_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'

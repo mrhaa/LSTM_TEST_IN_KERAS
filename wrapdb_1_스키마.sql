@@ -13,12 +13,10 @@
 
 
 -- wrapdb_1 데이터베이스 구조 내보내기
-DROP DATABASE IF EXISTS `wrapdb_1`;
 CREATE DATABASE IF NOT EXISTS `wrapdb_1` /*!40100 DEFAULT CHARACTER SET utf8 */;
 USE `wrapdb_1`;
 
 -- 테이블 wrapdb_1.code_element 구조 내보내기
-DROP TABLE IF EXISTS `code_element`;
 CREATE TABLE IF NOT EXISTS `code_element` (
   `element_cd` varchar(5) NOT NULL,
   `group_cd` varchar(5) NOT NULL,
@@ -28,7 +26,6 @@ CREATE TABLE IF NOT EXISTS `code_element` (
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
 -- 테이블 wrapdb_1.code_group 구조 내보내기
-DROP TABLE IF EXISTS `code_group`;
 CREATE TABLE IF NOT EXISTS `code_group` (
   `group_cd` varchar(5) NOT NULL,
   `group_nm` varchar(100) NOT NULL,
@@ -37,7 +34,6 @@ CREATE TABLE IF NOT EXISTS `code_group` (
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
 -- 테이블 wrapdb_1.item 구조 내보내기
-DROP TABLE IF EXISTS `item`;
 CREATE TABLE IF NOT EXISTS `item` (
   `cd` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `nm` varchar(100) NOT NULL,
@@ -57,7 +53,6 @@ CREATE TABLE IF NOT EXISTS `item` (
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
 -- 테이블 wrapdb_1.ivalues 구조 내보내기
-DROP TABLE IF EXISTS `ivalues`;
 CREATE TABLE IF NOT EXISTS `ivalues` (
   `date` varchar(10) NOT NULL,
   `item_cd` int(10) NOT NULL,
@@ -70,7 +65,6 @@ CREATE TABLE IF NOT EXISTS `ivalues` (
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
 -- 테이블 wrapdb_1.result 구조 내보내기
-DROP TABLE IF EXISTS `result`;
 CREATE TABLE IF NOT EXISTS `result` (
   `start_dt` varchar(10) NOT NULL,
   `end_dt` varchar(10) NOT NULL,
@@ -99,7 +93,6 @@ CREATE TABLE IF NOT EXISTS `result` (
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
 -- 테이블 wrapdb_1.result_factor 구조 내보내기
-DROP TABLE IF EXISTS `result_factor`;
 CREATE TABLE IF NOT EXISTS `result_factor` (
   `start_dt` varchar(10) NOT NULL,
   `end_dt` varchar(10) NOT NULL,
@@ -117,7 +110,6 @@ CREATE TABLE IF NOT EXISTS `result_factor` (
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
 -- 테이블 wrapdb_1.result_last 구조 내보내기
-DROP TABLE IF EXISTS `result_last`;
 CREATE TABLE IF NOT EXISTS `result_last` (
   `start_dt` varchar(10) NOT NULL,
   `end_dt` varchar(10) NOT NULL,
@@ -145,6 +137,40 @@ CREATE TABLE IF NOT EXISTS `result_last` (
   KEY `INDEX1` (`start_dt`,`end_dt`,`target_cd`,`model_profit`,`term_type`),
   KEY `INDEX2` (`start_dt`,`end_dt`,`target_cd`,`window_size`),
   KEY `INDEX3` (`start_dt`,`end_dt`,`target_cd`,`term_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- 내보낼 데이터가 선택되어 있지 않습니다.
+-- 테이블 wrapdb_1.target_factor_corr 구조 내보내기
+CREATE TABLE IF NOT EXISTS `target_factor_corr` (
+  `target_nm` varchar(128) NOT NULL,
+  `factor_nm` varchar(128) NOT NULL,
+  `end_dt` varchar(10) NOT NULL,
+  `lag` int(8) NOT NULL,
+  `window_size` int(8) NOT NULL,
+  `norm_yn` int(8) NOT NULL,
+  `value` float NOT NULL,
+  `hit_ratio` float NOT NULL,
+  `create_tm` datetime NOT NULL,
+  `update_tm` datetime NOT NULL,
+  PRIMARY KEY (`target_nm`,`factor_nm`,`end_dt`,`lag`,`window_size`,`norm_yn`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- 내보낼 데이터가 선택되어 있지 않습니다.
+-- 테이블 wrapdb_1.target_factor_corr_law_data 구조 내보내기
+CREATE TABLE IF NOT EXISTS `target_factor_corr_law_data` (
+  `target_nm` varchar(128) NOT NULL,
+  `factor_nm` varchar(128) NOT NULL,
+  `end_dt` varchar(10) NOT NULL,
+  `lag` int(8) NOT NULL,
+  `window_size` int(8) NOT NULL,
+  `hist_dt` varchar(10) NOT NULL,
+  `norm_yn` int(8) NOT NULL,
+  `target_val` float NOT NULL,
+  `factor_val` float NOT NULL,
+  `hit_yn` int(8) NOT NULL,
+  `create_tm` datetime NOT NULL,
+  `update_tm` datetime NOT NULL,
+  PRIMARY KEY (`target_nm`,`factor_nm`,`end_dt`,`lag`,`window_size`,`hist_dt`,`norm_yn`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.

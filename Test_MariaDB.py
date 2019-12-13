@@ -366,6 +366,56 @@ class WrapDB(object):
 
             return False
 
+    def insert_corr(self, target_nm, factor_nm, end_dt, lag, window_size, value, hit_ratio, norm_yn):
+
+        # Factor의 갯수가 1~10개로 유동적임
+        sql = "INSERT INTO target_factor_corr (target_nm, factor_nm, end_dt, lag, window_size, norm_yn, value, hit_ratio, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE value=%s, hit_ratio=%s, update_tm=now()"
+
+        sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, norm_yn, value, hit_ratio, value, hit_ratio])
+        #print(sql % sql_arg)
+
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
+
+            # DB 반영
+            self.conn.commit()
+
+            return True
+
+        except:
+            self.conn.rollback()
+
+            return False
+
+    def insert_corr_law_data(self, target_nm, factor_nm, end_dt, lag, window_size, target_data, factor_data, hit_yn_data, norm_yn):
+
+        # Factor의 갯수가 1~10개로 유동적임
+        sql = "INSERT INTO target_factor_corr_law_data (target_nm, factor_nm, end_dt, lag, window_size, hist_dt, norm_yn, target_val, factor_val, hit_yn, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE target_val=%s, factor_val=%s, hit_yn=%s, update_tm=now()"
+
+        dates = target_data.index
+        for i, date in enumerate(dates):
+            target_val = target_data[i]
+            factor_val = factor_data[i]
+            sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, str(date), norm_yn, float(target_val), float(factor_val), hit_yn_data[i], float(target_val), float(factor_val), hit_yn_data[i]])
+            #print(sql % sql_arg)
+
+            try:
+                # 수행
+                self.cursor.execute(sql, sql_arg)
+
+                # DB 반영
+                self.conn.commit()
+
+            except:
+                self.conn.rollback()
+
+                return False
+
+        return True
+
     def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size):
 
         sql = "DELETE " \
