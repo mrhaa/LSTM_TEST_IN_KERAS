@@ -20,6 +20,12 @@ from Wrap_Folione import Preprocess
 from Wrap_Folione import Folione
 import Wrap_Folione as wf
 
+import sys
+import os
+import platform
+#sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+base_dir = (os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+
 # Folione 모델 외부(전단계)
 use_datas_pickle = False # 중간 저장된 raw data 사용 여부
 
@@ -32,11 +38,11 @@ use_factor_selection_pickle = False
 make_simulate_signal = True
 
 # 병렬처리 사용여부
-use_parallel_process = True
+use_parallel_process = False
 
 # Debug 데이터 생성 여부
-save_datas_excel = True
-save_correlations_txt = False
+save_datas_excel = False
+save_correlations_txt = True
 
 # Signal DB 저장 여부
 save_signal_process_db = False
@@ -47,7 +53,6 @@ do_pca = False
 
 # 그래프 생성
 do_figure = False
-
 
 if __name__ == '__main__':
 
@@ -119,11 +124,19 @@ if __name__ == '__main__':
             pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term))
                                                                , drop_basis_to=simulation_end_date, lag_shift_yn=lag_shift_yn)
 
-            Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx' % (simulation_term_type, back_test_date), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
-            Wrap_Util.SaveCSVFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
-            Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
+            if platform.system() == 'Windows':
+                Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx' % (simulation_term_type, back_test_date), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
+                Wrap_Util.SaveCSVFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
+                Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
+            else:
+                Wrap_Util.SaveCSVFiles(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv' % (base_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
+                Wrap_Util.SavePickleFile(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (base_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
         else:
-            pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date))
+            if platform.system() == 'Windows':
+                pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (base_dir, simulation_term_type, back_test_date))
+            else:
+                pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (base_dir, simulation_term_type, back_test_date))
+
 
 
         if do_simulation == True:
@@ -150,7 +163,7 @@ if __name__ == '__main__':
             #target_index_nm_list = ["MSCI World", "MSCI EM", "S&P500"]
 
 
-            max_proces_num = 5
+            max_proces_num = 10
             jobs = []
             pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
             for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
