@@ -36,16 +36,16 @@ use_datas_pickle = True # 중간 저장된 raw data 사용 여부
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
+use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
 use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
 use_factor_selection_pickle = False
-make_simulate_signal = True
+make_folione_signal = True
 
 # 병렬처리 사용여부
 use_parallel_process = True
 
 # Debug 데이터 생성 여부
-save_datas_excel = False
+save_datas_excel = True
 save_correlations_txt = False
 
 # Signal DB 저장 여부
@@ -155,8 +155,8 @@ if __name__ == '__main__':
             #window_sizes = {"from": raw_data_spare_term, "to": raw_data_spare_term}
             profit_calc_start_date = simulation_start_date
             profit_calc_end_date = simulation_end_date
-            min_max_check_term = 2 # 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
-            weight_check_term = 4
+            min_max_check_term = 4 # 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
+            weight_check_term = 8
 
             # 장기 시뮬레이션
             if simulation_term_type == 1:
@@ -167,7 +167,7 @@ if __name__ == '__main__':
 
 
             # Test
-            target_index_nm_list = ["S&P500"]
+            #target_index_nm_list = ["S&P500"]
 
 
             max_proces_num = 10
@@ -178,7 +178,7 @@ if __name__ == '__main__':
                     folione = Folione(pivoted_sampled_datas_last_pure_version, window_size, simulation_term_type
                                       , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, target_index_nm
                                       , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
-                                      , make_simulate_signal
+                                      , make_folione_signal
                                       , save_datas_excel, save_correlations_txt, save_signal_process_db, save_signal_last_db, use_parallel_process)
 
                     if use_parallel_process == True:

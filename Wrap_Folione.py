@@ -346,10 +346,11 @@ class Folione (object):
         self.MakeZScore()
         self.CalcCorrelation()
         self.SelectFactor()
-        if 0:
-            self.MakeSignal()
-        else:
-            self.MakeSignal_AllCombis()
+        if self.make_folione_signal == True:
+            if 0:
+                self.MakeSignal()
+            else:
+                self.MakeSignal_AllCombis()
 
 
     def MakeZScore(self):
@@ -445,8 +446,8 @@ class Folione (object):
                     
                     # Correlation lag 사용여부
                     # 동적 FACTOR LAG 사용: 1, 미사용: 0
-                    use_factor_lag = 1
-                    max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag else 1
+                    use_factor_lag = True
+                    max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag == True else 1
 
                     # 주식 Buy, Sell 포지션 판단
                     new_point = self.weight_check_term - 1
@@ -466,7 +467,7 @@ class Folione (object):
 
                                 # 역관계이면 z-score에 -1을 곱한다.
                                 # Corr가 가장 높은 기간으로 lag 적용(Factor가 Target Index보다 선행)
-                                factor_lag = int(self.corr[index_nm + "_" + column_nm]['lag']) if use_factor_lag else 1
+                                factor_lag = int(self.corr[index_nm + "_" + column_nm]['lag']) if use_factor_lag == True else 1
                                 # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                                 if 0:
                                     average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) \
@@ -500,7 +501,7 @@ class Folione (object):
                                         '''
                                         # 이번 signal이 max인 경우 주식 100% 매수
                                         #if average_array[new_point] == max(average_array):
-                                        if average_array[-1] == max(average_array):
+                                        if average_array[-1] >= max(average_array):
                                             # self.raw_data[index_nm].index.values[self.window_size + idx]
                                             # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                             self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
@@ -528,7 +529,7 @@ class Folione (object):
                         prev_row_nm = row_nm
 
                     # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
-                    if 1 or self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
+                    if self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
                         print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
                               #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
                               self.model_accumulated_profits[index_nm][column_nm], '\t',
@@ -567,63 +568,256 @@ class Folione (object):
 
     def MakeSignal(self):
 
-        if self.make_folione_signal == True:
+        if self.save_datas_excel:
+            model_signal_data = pd.DataFrame(index=self.zscore_data.index)
+            average_zscore_data = copy.deepcopy(model_signal_data)
+            max_zscore_data = copy.deepcopy(model_signal_data)
 
-            if self.save_datas_excel:
-                model_signal_data = pd.DataFrame(index=self.zscore_data.index)
-                average_zscore_data = copy.deepcopy(model_signal_data)
-                max_zscore_data = copy.deepcopy(model_signal_data)
+            rst_idx_str = ["Window Size", "Target Index", "시작일", "마지막일", "기간(일)", "시그널", "누적 모델 수익률(연환산)","누적 BM 수익률(연환산)", "누적 모델 수익률", "누적 BM 수익률", "펙터(#)", "펙터"]
+            result_data = pd.DataFrame(index=rst_idx_str)
 
-                rst_idx_str = ["Window Size", "Target Index", "시작일", "마지막일", "기간(일)", "시그널", "누적 모델 수익률(연환산)","누적 BM 수익률(연환산)", "누적 모델 수익률", "누적 BM 수익률", "펙터(#)", "펙터"]
-                result_data = pd.DataFrame(index=rst_idx_str)
+        # Signal 결과 저장
+        #f = open(".\\pickle\\Signal_target_index_%s_simulation_term_type_%s_window_size_%s_From %s To %s.txt" % (self.target_index_nm, self.simulation_term_type, self.window_size, self.profit_calc_start_date, self.profit_calc_end_date), 'w')
+        idx_str = "Window Size" + '\t' + "Target Index" + '\t' + "시작일" + '\t' + "마지막일" + '\t' + "기간(일)" + '\t' + "시그널" + '\t' + "누적 모델 수익률(연환산)" + '\t' \
+                  + "누적 BM 수익률(연환산)" + '\t' + "누적 모델 수익률" + '\t' + "누적 BM 수익률" + '\t' + "펙터(#)" + '\t' + "펙터" + '\n'
+        #f.write(idx_str)
 
-            # Signal 결과 저장
-            #f = open(".\\pickle\\Signal_target_index_%s_simulation_term_type_%s_window_size_%s_From %s To %s.txt" % (self.target_index_nm, self.simulation_term_type, self.window_size, self.profit_calc_start_date, self.profit_calc_end_date), 'w')
-            idx_str = "Window Size" + '\t' + "Target Index" + '\t' + "시작일" + '\t' + "마지막일" + '\t' + "기간(일)" + '\t' + "시그널" + '\t' + "누적 모델 수익률(연환산)" + '\t' \
-                      + "누적 BM 수익률(연환산)" + '\t' + "누적 모델 수익률" + '\t' + "누적 BM 수익률" + '\t' + "펙터(#)" + '\t' + "펙터" + '\n'
-            #f.write(idx_str)
+        # 병렬처리 아닌 경우 로그 프린트
+        if self.use_parallel_process == False:
+            print(idx_str)
 
-            # 병렬처리 아닌 경우 로그 프린트
-            if self.use_parallel_process == False:
-                print(idx_str)
+        # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
+        max_simulate_factor_num = 10
+        index_nm = self.target_index_nm
 
-            # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
-            max_simulate_factor_num = 10
-            index_nm = self.target_index_nm
+        # 1단계. 예측 index별로 container 생성
+        self.model_signals[index_nm] = {}
 
-            # 1단계. 예측 index별로 container 생성
-            self.model_signals[index_nm] = {}
+        model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
 
-            model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
+        signal_factors_nm = ""
+        simulate_factor_list = []
+        for profitable_factor in model_profitable_factors_sorted:
 
-            signal_factors_nm = ""
-            simulate_factor_list = []
-            for profitable_factor in model_profitable_factors_sorted:
+            # 수익률 관련 메타 정보 저장
+            check_first_data = False
+            profit_start_date = '1111-11-11'
+            profit_end_date = '9999-99-99'
+
+            # 최대 factor 갯수는 10개까지 테스트 & BM보다 좋은 수익률을 내는 factor
+            #if len(simulate_factor_list) <= max_simulate_factor_num and self.model_accumulated_profits[index_nm][profitable_factor] > self.bm_accumulated_profits[index_nm][profitable_factor]:
+            if len(simulate_factor_list) <= max_simulate_factor_num:
+                if len(simulate_factor_list):
+                    signal_factors_nm = signal_factors_nm + " & " + profitable_factor
+                else:
+                    signal_factors_nm = profitable_factor
+                simulate_factor_list.append(profitable_factor)
+
+                # 2단계. 예측 index & factor combination별로 container 생성
+                self.model_signals[index_nm][signal_factors_nm] = {}
+
+                if self.save_datas_excel:
+                    model_signal_data[signal_factors_nm] = 0
+                    average_zscore_data[signal_factors_nm] = 0
+                    max_zscore_data[signal_factors_nm] = 0
+                    result_data[signal_factors_nm] = None
+            else:
+                break
+
+
+            # 모델을 이용한 누적수익률
+            accumulated_model_profit = 1.0
+            accumulated_bm_profit = 1.0
+
+            # Correlation lag 사용여부
+            # FACTOR LAG 사용: 1, 미사용: 0
+            use_factor_lag = 1
+            max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag else 0
+
+            new_point = self.weight_check_term - 1
+            average_array = [0] * self.weight_check_term
+            for idx, row_nm in enumerate(self.zscore_data.index):
+                try:
+                    # 과거 moving average 생성 및 시프트
+                    # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
+                    if idx >= (self.min_max_check_term - 1) + max_factor_lag:
+                        average_array[:new_point] = average_array[-new_point:]
+
+                        average_array[-1] = 0
+                        # 다수 factor를 이용해 모델 예측하는 경우 factor들의 값을 더한 후 평균
+                        for factor in simulate_factor_list:
+                            factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag else 0
+                            # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
+                            if 0:
+                                average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * \
+                                                     (self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
+                                                      + self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
+                            # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
+                            else:
+                                average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
+                        average_array[-1] /= len(simulate_factor_list)
+
+                        # 수익률 계산 시작
+                        # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
+                        if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+
+                            # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
+                            if check_first_data == False:
+                                #print(self.window_size, index_nm, row_nm)
+                                profit_start_date = row_nm
+                                check_first_data = True
+
+                            # 조건 만족으로 BUY 포지션
+                            if 0:
+                                # 이번 signal의 위치에 맞게 주식비율 조절 매수
+                                ai_profit_rate = 0.0159 / 12  # 예탁이용료 1달 수익률
+                                buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
+                                if buy_ratio >= 0.0:
+                                    accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
+                            else:
+                                #if average_array[new_point] == max(average_array):
+                                if average_array[-1] == max(average_array):
+                                    # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
+                                    if self.window_size + idx < len(self.raw_data.index):
+                                        accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+
+                                    # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
+                                    self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
+
+                                    if self.save_datas_excel:
+                                        model_signal_data[signal_factors_nm][row_nm] = 1
+                                else:
+                                    self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
+                            profit_end_date = row_nm
+
+                            if self.save_datas_excel:
+                                average_zscore_data[signal_factors_nm][row_nm] = average_array[-1]
+                                max_zscore_data[signal_factors_nm][row_nm] = max(average_array)
+
+                            # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
+                            if self.window_size + idx < len(self.raw_data.index):
+                                accumulated_bm_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+
+                except IndexError:
+                    print("IndexError:\t", index_nm, '\t', signal_factors_nm, '\t', row_nm)
+                    pass
+
+            # 유효 factor들의 combination을 이용하여
+            if self.save_datas_excel and accumulated_model_profit > accumulated_bm_profit:
+                profit_period = (datetime.strptime(profit_end_date, '%Y-%m-%d').date() - datetime.strptime(profit_start_date, '%Y-%m-%d').date()).days
+
+                result_data[signal_factors_nm]["Window Size"] = self.window_size
+                result_data[signal_factors_nm]["Target Index"] = index_nm
+                result_data[signal_factors_nm]["시작일"] = profit_start_date
+                result_data[signal_factors_nm]["마지막일"] = profit_end_date
+                result_data[signal_factors_nm]["기간(일)"] = profit_period
+                result_data[signal_factors_nm]["시그널"] = self.model_signals[index_nm][signal_factors_nm][profit_end_date]
+                result_data[signal_factors_nm]["누적 모델 수익률(연환산)"] = accumulated_model_profit / profit_period * 365
+                result_data[signal_factors_nm]["누적 BM 수익률(연환산)"] = accumulated_bm_profit / profit_period * 365
+                result_data[signal_factors_nm]["누적 모델 수익률"] = accumulated_model_profit
+                result_data[signal_factors_nm]["누적 BM 수익률"] = accumulated_bm_profit
+                result_data[signal_factors_nm]["펙터(#)"] = len(simulate_factor_list)
+                result_data[signal_factors_nm]["펙터"] = signal_factors_nm
+
+                signal_str = str(self.window_size) + '\t' + index_nm + '\t' + profit_start_date + '\t' + profit_end_date + '\t' + str(profit_period) + '\t' + self.model_signals[index_nm][signal_factors_nm][profit_end_date] + '\t' \
+                             + str(accumulated_model_profit / profit_period * 365) + '\t' + str(accumulated_bm_profit / profit_period * 365) + '\t' \
+                             + str(accumulated_model_profit) + '\t' + str(accumulated_bm_profit) + '\t' + str(len(simulate_factor_list)) + '\t' + signal_factors_nm
+
+                # 병렬처리 아닌 경우 로그 프린트
+                if self.use_parallel_process == False:
+                    print(signal_str)
+
+                #signal_str += '\n'
+                #f.write(signal_str)
+
+
+        #f.close()
+
+        if self.save_datas_excel:
+            Wrap_Util.SaveExcelFiles(file='%smodel_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
+                                          % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
+                                     , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'factor_signal_data': model_signal_data
+                                     , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
+
+
+
+    def MakeSignal_AllCombis(self):
+
+        factors_nm_cd_map = self.db.get_factors_nm_cd()
+
+        if self.save_datas_excel:
+            model_signal_data = pd.DataFrame(index=self.zscore_data.index)
+            average_zscore_data = copy.deepcopy(model_signal_data)
+            max_zscore_data = copy.deepcopy(model_signal_data)
+
+            rst_idx_str = ["Window Size", "Target Index", "시작일", "마지막일", "기간(일)", "시그널", "누적 모델 수익률(연환산)", "누적 BM 수익률(연환산)", "누적 모델 수익률", "누적 BM 수익률", "펙터(#)", "펙터"]
+            result_data = pd.DataFrame(index = rst_idx_str)
+
+
+        # Signal 결과 저장
+        #f = open(".\\pickle\\Signal_target_index_%s_simulation_term_type_%s_window_size_%s_From %s To %s.txt" % (self.target_index_nm, self.simulation_term_type, self.window_size, self.profit_calc_start_date,self.profit_calc_end_date), 'w')
+        idx_str = "Window Size" + '\t' + "Target Index" + '\t' + "시작일" + '\t' + "마지막일" + '\t' + "기간(일)" + '\t' + "시그널" + '\t' + "누적 모델 수익률(연환산)" + '\t' \
+                  + "누적 BM 수익률(연환산)" + '\t' + "누적 모델 수익률" + '\t' + "누적 BM 수익률" + '\t' + "펙터(#)" + '\t' + "펙터" + '\n'
+        #f.write(idx_str)
+
+        # 병렬처리 아닌 경우 로그 프린트
+        if self.use_parallel_process == False:
+            print(idx_str)
+
+        # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
+        max_signal_factors_num = 10
+        index_nm = self.target_index_nm
+
+
+        # 결과 DB 저장시 기존 생성 내용 삭제
+        if self.save_signal_process_db == True:
+            table_nm = "result"
+            self.db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size)
+
+        if self.save_signal_last_db == True:
+            table_nm = "result_last"
+            self.db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size)
+
+
+        # 1단계. 예측 index별로 container 생성
+        self.model_signals[index_nm] = {}
+
+        # reverse가 True이면 내림차순, False이면 올림차순
+        model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
+
+        # combination factor 갯수
+        for ele_count in range(1, max_signal_factors_num+1):
+
+            combis = list(itertools.combinations(list(model_profitable_factors_sorted)[:10], ele_count))
+
+            # 특정 갯수로 만들어질 수 있는 Combination 리스트
+            for combi in combis:
+
+                # 동일 리스트의 경우 순서에 의한 문제 제거(DB Key 에러 문제)
+                combi = sorted(combi)
 
                 # 수익률 관련 메타 정보 저장
                 check_first_data = False
                 profit_start_date = '1111-11-11'
                 profit_end_date = '9999-99-99'
 
-                # 최대 factor 갯수는 10개까지 테스트 & BM보다 좋은 수익률을 내는 factor
-                #if len(simulate_factor_list) <= max_simulate_factor_num and self.model_accumulated_profits[index_nm][profitable_factor] > self.bm_accumulated_profits[index_nm][profitable_factor]:
-                if len(simulate_factor_list) <= max_simulate_factor_num:
-                    if len(simulate_factor_list):
+                signal_factors_nm = ""
+                signal_factors_list = []
+                for profitable_factor in combi:
+                    if len(signal_factors_list):
                         signal_factors_nm = signal_factors_nm + " & " + profitable_factor
                     else:
                         signal_factors_nm = profitable_factor
-                    simulate_factor_list.append(profitable_factor)
+                    signal_factors_list.append(profitable_factor)
 
-                    # 2단계. 예측 index & factor combination별로 container 생성
-                    self.model_signals[index_nm][signal_factors_nm] = {}
+                # 2단계. 예측 index & factor combination별로 container 생성
+                self.model_signals[index_nm][signal_factors_nm] = {}
 
-                    if self.save_datas_excel:
-                        model_signal_data[signal_factors_nm] = 0
-                        average_zscore_data[signal_factors_nm] = 0
-                        max_zscore_data[signal_factors_nm] = 0
-                        result_data[signal_factors_nm] = None
-                else:
-                    break
+                if self.save_datas_excel:
+                    model_signal_data[signal_factors_nm] = 0
+                    average_zscore_data[signal_factors_nm] = 0
+                    max_zscore_data[signal_factors_nm] = 0
+                    result_data[signal_factors_nm] = None
 
 
                 # 모델을 이용한 누적수익률
@@ -646,17 +840,17 @@ class Folione (object):
 
                             average_array[-1] = 0
                             # 다수 factor를 이용해 모델 예측하는 경우 factor들의 값을 더한 후 평균
-                            for factor in simulate_factor_list:
+                            for factor in signal_factors_list:
                                 factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag else 0
                                 # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                                 if 0:
-                                    average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * \
-                                                         (self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
-                                                          + self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
+                                    average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) \
+                                                         * (self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
+                                                            + self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
                                 # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
                                 else:
                                     average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
-                            average_array[-1] /= len(simulate_factor_list)
+                            average_array[-1] /= len(signal_factors_list)
 
                             # 수익률 계산 시작
                             # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
@@ -680,7 +874,7 @@ class Folione (object):
                                     if average_array[-1] == max(average_array):
                                         # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                         if self.window_size + idx < len(self.raw_data.index):
-                                            accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                            accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
 
                                         # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
                                         self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
@@ -699,9 +893,35 @@ class Folione (object):
                                 if self.window_size + idx < len(self.raw_data.index):
                                     accumulated_bm_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
 
+                                # 시그널 DB 저장
+                                if self.save_signal_process_db == True or (self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date)):
+                                    date_info = {'start_dt': str(self.profit_calc_start_date),'end_dt': str(self.profit_calc_end_date), 'curr_dt': row_nm}
+                                    target_cd = factors_nm_cd_map[index_nm]
+                                    factor_info = {'factors_num': len(signal_factors_list),'multi_factors_nm': signal_factors_nm,'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
+                                    signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
+                                    etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type}
+
+                                    # 발생하는 모든 과정의 Signal을 저장
+                                    if self.save_signal_process_db == True:
+                                        table_nm = 'result'
+                                        self.db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
+
+                                    # 마지막 Signal만 저장
+                                    if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
+                                        table_nm = 'result_last'
+                                        self.db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
+
+                                # Scenario End Date, Exit
+                                if row_nm == self.profit_calc_end_date:
+                                    break
+
                     except IndexError:
                         print("IndexError:\t", index_nm, '\t', signal_factors_nm, '\t', row_nm)
                         pass
+                    except Exception as inst:
+                        print(type(inst))  # the exception instance
+                        print(inst.args)  # arguments stored in .args
+                        print(inst)
 
                 # 유효 factor들의 combination을 이용하여
                 if self.save_datas_excel and accumulated_model_profit > accumulated_bm_profit:
@@ -717,12 +937,12 @@ class Folione (object):
                     result_data[signal_factors_nm]["누적 BM 수익률(연환산)"] = accumulated_bm_profit / profit_period * 365
                     result_data[signal_factors_nm]["누적 모델 수익률"] = accumulated_model_profit
                     result_data[signal_factors_nm]["누적 BM 수익률"] = accumulated_bm_profit
-                    result_data[signal_factors_nm]["펙터(#)"] = len(simulate_factor_list)
+                    result_data[signal_factors_nm]["펙터(#)"] = len(signal_factors_list)
                     result_data[signal_factors_nm]["펙터"] = signal_factors_nm
 
                     signal_str = str(self.window_size) + '\t' + index_nm + '\t' + profit_start_date + '\t' + profit_end_date + '\t' + str(profit_period) + '\t' + self.model_signals[index_nm][signal_factors_nm][profit_end_date] + '\t' \
                                  + str(accumulated_model_profit / profit_period * 365) + '\t' + str(accumulated_bm_profit / profit_period * 365) + '\t' \
-                                 + str(accumulated_model_profit) + '\t' + str(accumulated_bm_profit) + '\t' + str(len(simulate_factor_list)) + '\t' + signal_factors_nm
+                                 + str(accumulated_model_profit) + '\t' + str(accumulated_bm_profit) + '\t' + str(len(signal_factors_list))  + '\t' + signal_factors_nm
 
                     # 병렬처리 아닌 경우 로그 프린트
                     if self.use_parallel_process == False:
@@ -731,237 +951,13 @@ class Folione (object):
                     #signal_str += '\n'
                     #f.write(signal_str)
 
+        #f.close()
 
-            #f.close()
-
-            if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='%smodel_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
-                                              % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
-                                         , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'factor_signal_data': model_signal_data
-                                         , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
-
-        return True
-
-
-    def MakeSignal_AllCombis(self):
-
-        if self.make_folione_signal == True:
-
-            factors_nm_cd_map = self.db.get_factors_nm_cd()
-
-            if self.save_datas_excel:
-                model_signal_data = pd.DataFrame(index=self.zscore_data.index)
-                average_zscore_data = copy.deepcopy(model_signal_data)
-                max_zscore_data = copy.deepcopy(model_signal_data)
-
-                rst_idx_str = ["Window Size", "Target Index", "시작일", "마지막일", "기간(일)", "시그널", "누적 모델 수익률(연환산)", "누적 BM 수익률(연환산)", "누적 모델 수익률", "누적 BM 수익률", "펙터(#)", "펙터"]
-                result_data = pd.DataFrame(index = rst_idx_str)
-
-
-            # Signal 결과 저장
-            #f = open(".\\pickle\\Signal_target_index_%s_simulation_term_type_%s_window_size_%s_From %s To %s.txt" % (self.target_index_nm, self.simulation_term_type, self.window_size, self.profit_calc_start_date,self.profit_calc_end_date), 'w')
-            idx_str = "Window Size" + '\t' + "Target Index" + '\t' + "시작일" + '\t' + "마지막일" + '\t' + "기간(일)" + '\t' + "시그널" + '\t' + "누적 모델 수익률(연환산)" + '\t' \
-                      + "누적 BM 수익률(연환산)" + '\t' + "누적 모델 수익률" + '\t' + "누적 BM 수익률" + '\t' + "펙터(#)" + '\t' + "펙터" + '\n'
-            #f.write(idx_str)
-
-            # 병렬처리 아닌 경우 로그 프린트
-            if self.use_parallel_process == False:
-                print(idx_str)
-            
-            # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
-            max_signal_factors_num = 10
-            index_nm = self.target_index_nm
-
-
-            # 결과 DB 저장시 기존 생성 내용 삭제
-            if self.save_signal_process_db == True:
-                table_nm = "result"
-                self.db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size)
-
-            if self.save_signal_last_db == True:
-                table_nm = "result_last"
-                self.db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size)
-                
-
-            # 1단계. 예측 index별로 container 생성
-            self.model_signals[index_nm] = {}
-
-			# reverse가 True이면 내림차순, False이면 올림차순
-            model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
-            
-            # combination factor 갯수
-            for ele_count in range(1, max_signal_factors_num+1):
-
-                combis = list(itertools.combinations(list(model_profitable_factors_sorted)[:10], ele_count))
-
-                # 특정 갯수로 만들어질 수 있는 Combination 리스트
-                for combi in combis:
-
-                    # 동일 리스트의 경우 순서에 의한 문제 제거(DB Key 에러 문제)
-                    combi = sorted(combi)
-
-                    # 수익률 관련 메타 정보 저장
-                    check_first_data = False
-                    profit_start_date = '1111-11-11'
-                    profit_end_date = '9999-99-99'
-
-                    signal_factors_nm = ""
-                    signal_factors_list = []
-                    for profitable_factor in combi:
-                        if len(signal_factors_list):
-                            signal_factors_nm = signal_factors_nm + " & " + profitable_factor
-                        else:
-                            signal_factors_nm = profitable_factor
-                        signal_factors_list.append(profitable_factor)
-
-                    # 2단계. 예측 index & factor combination별로 container 생성
-                    self.model_signals[index_nm][signal_factors_nm] = {}
-
-                    if self.save_datas_excel:
-                        model_signal_data[signal_factors_nm] = 0
-                        average_zscore_data[signal_factors_nm] = 0
-                        max_zscore_data[signal_factors_nm] = 0
-                        result_data[signal_factors_nm] = None
-
-
-                    # 모델을 이용한 누적수익률
-                    accumulated_model_profit = 1.0
-                    accumulated_bm_profit = 1.0
-
-                    # Correlation lag 사용여부
-                    # FACTOR LAG 사용: 1, 미사용: 0
-                    use_factor_lag = 1
-                    max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag else 0
-
-                    new_point = self.weight_check_term - 1
-                    average_array = [0] * self.weight_check_term
-                    for idx, row_nm in enumerate(self.zscore_data.index):
-                        try:
-                            # 과거 moving average 생성 및 시프트
-                            # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
-                            if idx >= (self.min_max_check_term - 1) + max_factor_lag:
-                                average_array[:new_point] = average_array[-new_point:]
-
-                                average_array[-1] = 0
-                                # 다수 factor를 이용해 모델 예측하는 경우 factor들의 값을 더한 후 평균
-                                for factor in signal_factors_list:
-                                    factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag else 0
-                                    # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
-                                    if 0:
-                                        average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) \
-                                                             * (self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
-                                                                + self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
-                                    # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
-                                    else:
-                                        average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
-                                average_array[-1] /= len(signal_factors_list)
-
-                                # 수익률 계산 시작
-                                # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
-
-                                    # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
-                                    if check_first_data == False:
-                                        #print(self.window_size, index_nm, row_nm)
-                                        profit_start_date = row_nm
-                                        check_first_data = True
-
-                                    # 조건 만족으로 BUY 포지션
-                                    if 0:
-                                        # 이번 signal의 위치에 맞게 주식비율 조절 매수
-                                        ai_profit_rate = 0.0159 / 12  # 예탁이용료 1달 수익률
-                                        buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
-                                        if buy_ratio >= 0.0:
-                                            accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
-                                    else:
-                                        #if average_array[new_point] == max(average_array):
-                                        if average_array[-1] == max(average_array):
-                                            # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                            if self.window_size + idx < len(self.raw_data.index):
-                                                accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
-
-                                            # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
-                                            self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
-
-                                            if self.save_datas_excel:
-                                                model_signal_data[signal_factors_nm][row_nm] = 1
-                                        else:
-                                            self.model_signals[index_nm][signal_factors_nm][row_nm] = "SELL"
-                                    profit_end_date = row_nm
-
-                                    if self.save_datas_excel:
-                                        average_zscore_data[signal_factors_nm][row_nm] = average_array[-1]
-                                        max_zscore_data[signal_factors_nm][row_nm] = max(average_array)
-
-                                    # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                    if self.window_size + idx < len(self.raw_data.index):
-                                        accumulated_bm_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
-
-                                    # 시그널 DB 저장
-                                    if self.save_signal_process_db == True or (self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date)):
-                                        date_info = {'start_dt': str(self.profit_calc_start_date),'end_dt': str(self.profit_calc_end_date), 'curr_dt': row_nm}
-                                        target_cd = factors_nm_cd_map[index_nm]
-                                        factor_info = {'factors_num': len(signal_factors_list),'multi_factors_nm': signal_factors_nm,'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
-                                        signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
-                                        etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type}
-
-                                        # 발생하는 모든 과정의 Signal을 저장
-                                        if self.save_signal_process_db == True:
-                                            table_nm = 'result'
-                                            self.db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
-
-                                        # 마지막 Signal만 저장
-                                        if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
-                                            table_nm = 'result_last'
-                                            self.db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
-
-                                    # Scenario End Date, Exit
-                                    if row_nm == self.profit_calc_end_date:
-                                        break
-
-                        except IndexError:
-                            print("IndexError:\t", index_nm, '\t', signal_factors_nm, '\t', row_nm)
-                            pass
-                        except Exception as inst:
-                            print(type(inst))  # the exception instance
-                            print(inst.args)  # arguments stored in .args
-                            print(inst)
-
-                    # 유효 factor들의 combination을 이용하여
-                    if self.save_datas_excel and accumulated_model_profit > accumulated_bm_profit:
-                        profit_period = (datetime.strptime(profit_end_date, '%Y-%m-%d').date() - datetime.strptime(profit_start_date, '%Y-%m-%d').date()).days
-
-                        result_data[signal_factors_nm]["Window Size"] = self.window_size
-                        result_data[signal_factors_nm]["Target Index"] = index_nm
-                        result_data[signal_factors_nm]["시작일"] = profit_start_date
-                        result_data[signal_factors_nm]["마지막일"] = profit_end_date
-                        result_data[signal_factors_nm]["기간(일)"] = profit_period
-                        result_data[signal_factors_nm]["시그널"] = self.model_signals[index_nm][signal_factors_nm][profit_end_date]
-                        result_data[signal_factors_nm]["누적 모델 수익률(연환산)"] = accumulated_model_profit / profit_period * 365
-                        result_data[signal_factors_nm]["누적 BM 수익률(연환산)"] = accumulated_bm_profit / profit_period * 365
-                        result_data[signal_factors_nm]["누적 모델 수익률"] = accumulated_model_profit
-                        result_data[signal_factors_nm]["누적 BM 수익률"] = accumulated_bm_profit
-                        result_data[signal_factors_nm]["펙터(#)"] = len(signal_factors_list)
-                        result_data[signal_factors_nm]["펙터"] = signal_factors_nm
-
-                        signal_str = str(self.window_size) + '\t' + index_nm + '\t' + profit_start_date + '\t' + profit_end_date + '\t' + str(profit_period) + '\t' + self.model_signals[index_nm][signal_factors_nm][profit_end_date] + '\t' \
-                                     + str(accumulated_model_profit / profit_period * 365) + '\t' + str(accumulated_bm_profit / profit_period * 365) + '\t' \
-                                     + str(accumulated_model_profit) + '\t' + str(accumulated_bm_profit) + '\t' + str(len(signal_factors_list))  + '\t' + signal_factors_nm
-
-                        # 병렬처리 아닌 경우 로그 프린트
-                        if self.use_parallel_process == False:
-                            print(signal_str)
-
-                        #signal_str += '\n'
-                        #f.write(signal_str)
-
-            #f.close()
-
-            if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
-                                              % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
-                                         , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'model_signal_data': model_signal_data
-                                         , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
+        if self.save_datas_excel:
+            Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
+                                          % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
+                                     , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'model_signal_data': model_signal_data
+                                     , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
 
 
     def CalcCorrelation(self):
