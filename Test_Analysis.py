@@ -25,27 +25,31 @@ import os
 import platform
 #sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 base_dir = (os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+if platform.system() == 'Windows':
+    pickle_dir = '%s\\pickle\\' % (base_dir)
+else:
+    pickle_dir = '%s/pickle/' % (base_dir)
 
 # Folione 모델 외부(전단계)
-use_datas_pickle = False # 중간 저장된 raw data 사용 여부
+use_datas_pickle = True # 중간 저장된 raw data 사용 여부
 
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
+use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
 use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
 use_factor_selection_pickle = False
 make_simulate_signal = True
 
 # 병렬처리 사용여부
-use_parallel_process = False
+use_parallel_process = True
 
 # Debug 데이터 생성 여부
 save_datas_excel = False
-save_correlations_txt = True
+save_correlations_txt = False
 
 # Signal DB 저장 여부
-save_signal_process_db = False
+save_signal_process_db = True
 save_signal_last_db = True
 
 # 데이터 분석
@@ -56,16 +60,16 @@ do_figure = False
 
 if __name__ == '__main__':
 
+    # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
+    #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
+    back_test_dates = ['2019-11-30']
+
     # Simulation 기간 타입
     # 1: 장기, 2: 중기, 3: 단기
     # 장기: 2001-01-01 부터 (IT 버블 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(223 Factors)
     # 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
     # 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
     simulation_term_type = 3
-
-    # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
-    #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2019-11-30']
 
     for back_test_date in back_test_dates:
         if simulation_term_type == 1:
@@ -75,7 +79,6 @@ if __name__ == '__main__':
         elif simulation_term_type == 3:
             simulation_start_date = '2012-01-01'
         simulation_end_date = back_test_date
-
 
         # Z-Score 생성의 경우 과거 추가 기간이 필요함.
         # Z-Score의 최대 기간과 동일(월 단위)
@@ -87,21 +90,22 @@ if __name__ == '__main__':
             db = WrapDB()
             db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
 
-
             # 데이터 전처리 instance 생성
             preprocess = Preprocess()
 
             # 데이터 Info Read
-            data_info = db.get_data_info(min_num=raw_data_spare_term)
+            # simulation기간 + z-score를 계산할 수 있은 추가기간이 factor별 최소 필요 데이터 수량
+            data_info = db.get_data_info(min_num=int((datetime.strptime(simulation_end_date, '%Y-%m-%d')-datetime.strptime(simulation_start_date, '%Y-%m-%d')).days/30)+raw_data_spare_term)
             preprocess.SetDataInfo(data_info=data_info, data_info_columns=["아이템코드", "아이템명", "개수", "시작일", "마지막일"])
 
             # Factor 별 데이터가 존재하는 기간 설정
-            preprocess.MakeDateRange(start_date="시작일", last_date="마지막일")
+            #preprocess.MakeDateRange(start_date="시작일", last_date="마지막일")
 
             # 유효기간 내 데이터 Read
             # raw 데이터의 기간이 체계가 없어 return 받은 start_date, end_date을 사용할 수 없다.
-            data_list, start_date, end_date = preprocess.GetDataList(item_cd="아이템코드", start_date="시작일", last_date="마지막일")
-            datas = db.get_bloomberg_datas(data_list=data_list, start_date=None, end_date=None)
+            #data_list, start_date, end_date = preprocess.GetDataList(item_cd="아이템코드", start_date="시작일", last_date="마지막일")
+            data_list = preprocess.GetDataList(item_cd="아이템코드")
+            datas = db.get_bloomberg_datas(data_list=data_list)
             preprocess.SetDatas(datas=datas, datas_columns=["아이템코드", "아이템명", "날짜", "값"])
 
             # DataFrame 형태의 Sampled Data 생성
@@ -110,33 +114,36 @@ if __name__ == '__main__':
 
             # 유효한 데이터 가장 최근 값으로 채움
             # 예를 틀어 월말일이 휴일인 경우 해당 값이 비어있으면 직전영업 값을 찾아서 넣어줌.
-            # 모델을 위한 데이터의 주기가 1달이기 때문에 27일까지만 look back함.
-            preprocess.FillValidData(look_back_days=27)
+            # 모델을 위한 데이터의 주기가 1달이기 때문에 30일까지만 look back함.
+            preprocess.FillValidData(look_back_days=30)
 
             # 유효하지 않은 기간의 데이터 삭제
             # drop_basis_from: '2007-01-31', drop_basis_to: '가장 최근 말일'는 가장 유효한 factor를 많이 사용할 수 있는 기간을 찾아 적용하였음.
             #pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2001-01-01', drop_basis_to='2018-03-31')
-            print("simulation_start_date: ", simulation_start_date, str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)))
+            print("simulation_data_period: ", str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)), simulation_end_date)
 
             # factor에 따라 발표 시점에 lag가 있어 shift가 필요한 경우들이 있음.
             # lag때문에 사용하지 못하게 되는 factor가 많기 때문에 관련 내용을 처리할 수 있도록 수정이 필요
             lag_shift_yn = True
-            pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term))
+            preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term))
                                                                , drop_basis_to=simulation_end_date, lag_shift_yn=lag_shift_yn)
+            pivoted_sampled_datas = preprocess.GetPivotedSampledDatas()
+            pivoted_reference_datas = preprocess.GetPivotedReferenceDatas()
+            init_pivoted_sampled_datas = preprocess.GetInitPivotedSampledDatas()
+            filled_pivoted_sampled_datas = preprocess.GetFilledPivotedSampledDatas()
 
-            if platform.system() == 'Windows':
-                Wrap_Util.SaveExcelFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx' % (simulation_term_type, back_test_date), obj_dict={'pivoted_sampled_datas': pivoted_sampled_datas})
-                Wrap_Util.SaveCSVFiles(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
-                Wrap_Util.SavePickleFile(file='.\\pickle\\pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
-            else:
-                Wrap_Util.SaveCSVFiles(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv' % (base_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
-                Wrap_Util.SavePickleFile(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (base_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
+
+            Wrap_Util.SaveExcelFiles(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx'
+                                          % (pickle_dir, simulation_term_type, back_test_date)
+                                     , obj_dict={'pivoted_reference_datas': pivoted_reference_datas, 'init_pivoted_sampled_datas': init_pivoted_sampled_datas
+                                                , 'filled_pivoted_sampled_datas': filled_pivoted_sampled_datas, 'pivoted_sampled_datas': pivoted_sampled_datas})
+            Wrap_Util.SaveCSVFiles(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv'
+                                        % (pickle_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
+            Wrap_Util.SavePickleFile(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle'
+                                          % (pickle_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
         else:
-            if platform.system() == 'Windows':
-                pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (base_dir, simulation_term_type, back_test_date))
-            else:
-                pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='%s/pickle/pivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle' % (base_dir, simulation_term_type, back_test_date))
-
+            pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle'
+                                                                  % (pickle_dir, simulation_term_type, back_test_date))
 
 
         if do_simulation == True:
@@ -160,7 +167,7 @@ if __name__ == '__main__':
 
 
             # Test
-            #target_index_nm_list = ["MSCI World", "MSCI EM", "S&P500"]
+            target_index_nm_list = ["S&P500"]
 
 
             max_proces_num = 10
@@ -189,6 +196,7 @@ if __name__ == '__main__':
                         time.sleep(10)
                     else:
                         folione.MakeZScore()
+
                         folione.CalcCorrelation()
                         folione.SelectFactor()
                         if 0:

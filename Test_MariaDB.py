@@ -101,7 +101,7 @@ class WrapDB(object):
         # use_yn이 0인 경우는 데이터가 더이상 블룸버그에서 정상적으로 서비스되지 않는 상태
         # use_yn이 1인 경우는 데이터가 분기에 한번씩 발생하여 Folione에는 적합하지 않은 factor
         # use_yn이 2인 경우는 정상 케이스
-        sql = "SELECT a.cd, a.nm, count(*), min(date), max(date)" \
+        sql = "SELECT a.cd, a.nm, count(*), min(b.date), max(b.date)" \
               "  FROM item AS a, ivalues AS b" \
               " WHERE a.cd = b.item_cd" \
               "   AND a.use_yn in (2)" \
@@ -117,7 +117,7 @@ class WrapDB(object):
         return pd.DataFrame(data)
 
     # DB에서 블룸버그에서 수신한 Raw 데이터를 받음.
-    def get_bloomberg_datas(self, data_list, start_date = None, end_date = None):
+    def get_bloomberg_datas(self, data_list, start_date=None, end_date=None):
         
         # factor 리스트를 String형태의 Array로 만든다
         target_list = None
@@ -309,11 +309,11 @@ class WrapDB(object):
         sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", factor_cd" + str(idx)
-        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, update_tm)"
+        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, create_tm, update_tm)"
         sql = sql + " VALUES (%s, %s, %s, %s, %s, %s"
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", %s"
-        sql = sql + ", %s, %s, %s, %s, %s, now())"
+        sql = sql + ", %s, %s, %s, %s, %s, now(), now())"
         sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
 
         sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
@@ -342,8 +342,8 @@ class WrapDB(object):
     def insert_factor_signal(self, date_info, target_cd, factor_cd, signal_cd, etc):
 
         # Factor의 갯수가 1~10개로 유동적임
-        sql = "INSERT INTO result_factor (start_dt, end_dt, curr_dt, target_cd, factor_cd, window_size, signal_cd, factor_profit, index_profit, term_type, update_tm)"
-        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())"
+        sql = "INSERT INTO result_factor (start_dt, end_dt, curr_dt, target_cd, factor_cd, window_size, signal_cd, factor_profit, index_profit, term_type, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())"
         sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, factor_profit=%s, index_profit=%s, update_tm=now()"
 
         sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, etc['factor_profit'], etc['index_profit'], etc['term_type']]

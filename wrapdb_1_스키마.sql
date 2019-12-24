@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS `item` (
   `group` varchar(5) DEFAULT NULL,
   `use_yn` int(1) unsigned DEFAULT 2,
   `delay` int(10) unsigned DEFAULT NULL,
-  PRIMARY KEY (`cd`)
+  PRIMARY KEY (`cd`),
+  KEY `INDEX1` (`nm`)
 ) ENGINE=InnoDB AUTO_INCREMENT=388 DEFAULT CHARSET=utf8;
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
@@ -60,7 +61,8 @@ CREATE TABLE IF NOT EXISTS `ivalues` (
   `create_tm` datetime DEFAULT NULL,
   `update_tm` datetime DEFAULT NULL,
   PRIMARY KEY (`date`,`item_cd`),
-  KEY `INDEX1` (`item_cd`)
+  KEY `INDEX1` (`item_cd`),
+  KEY `INDEX2` (`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
@@ -87,6 +89,7 @@ CREATE TABLE IF NOT EXISTS `result` (
   `term_type` int(1) unsigned NOT NULL,
   `model_profit` float NOT NULL,
   `bm_profit` float NOT NULL,
+  `create_tm` datetime DEFAULT NULL,
   `update_tm` datetime DEFAULT NULL,
   PRIMARY KEY (`start_dt`,`end_dt`,`curr_dt`,`target_cd`,`multi_factors_nm`,`window_size`,`term_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -104,6 +107,7 @@ CREATE TABLE IF NOT EXISTS `result_factor` (
   `term_type` int(1) unsigned NOT NULL,
   `factor_profit` float NOT NULL,
   `index_profit` float NOT NULL,
+  `create_tm` datetime DEFAULT NULL,
   `update_tm` datetime DEFAULT NULL,
   PRIMARY KEY (`start_dt`,`end_dt`,`curr_dt`,`target_cd`,`factor_cd`,`window_size`,`term_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -132,6 +136,7 @@ CREATE TABLE IF NOT EXISTS `result_last` (
   `term_type` int(1) unsigned NOT NULL,
   `model_profit` float NOT NULL,
   `bm_profit` float NOT NULL,
+  `create_tm` datetime DEFAULT NULL,
   `update_tm` datetime DEFAULT NULL,
   PRIMARY KEY (`start_dt`,`end_dt`,`curr_dt`,`target_cd`,`multi_factors_nm`,`window_size`,`term_type`),
   KEY `INDEX1` (`start_dt`,`end_dt`,`target_cd`,`model_profit`,`term_type`),
