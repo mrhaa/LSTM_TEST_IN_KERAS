@@ -430,126 +430,134 @@ class Folione (object):
 
             check_first_data = False
             for column_nm in self.zscore_data.columns:
-
+                '''
+                # Test
+                if index_nm == "금" and column_nm == "USD/AUD":
+                    print("@@@@@@@@@@@@@")
+                '''
                 if self.save_datas_excel:
                     factor_signal_data[column_nm].values.fill(0)
                     average_zscore_data[column_nm].values.fill(0)
                     max_zscore_data[column_nm].values.fill(0)
 
-                # Factor별 수익률 계산
-                # 현재, Target Index와 Factor가 동일한 경우는 제외한다.
-                #if column_nm != index_nm:
-                # Factor가 Target Indext대비 선행성이 없으면 제외한다.
-                if column_nm != index_nm and int(self.corr[index_nm + "_" + column_nm]['lag']) != 0:
-                    # 누적 수익률 초기화
-                    self.model_accumulated_profits[index_nm][column_nm] = 1.0
-                    self.bm_accumulated_profits[index_nm][column_nm] = 1.0
-                    
-                    model_signal = "BUY"
-                    
-                    # Correlation lag 사용여부
-                    # 동적 FACTOR LAG 사용: 1, 미사용: 0
-                    use_factor_lag = True
-                    max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag == True else 1
+                try:
+                    # Factor별 수익률 계산
+                    # 현재, Target Index와 Factor가 동일한 경우는 제외한다.
+                    #if column_nm != index_nm:
+                    # Factor가 Target Indext대비 선행성이 없으면 제외한다.
+                    if column_nm != index_nm and int(self.corr[index_nm + "_" + column_nm]['lag']) >= 1:
+                        # 누적 수익률 초기화
+                        self.model_accumulated_profits[index_nm][column_nm] = 1.0
+                        self.bm_accumulated_profits[index_nm][column_nm] = 1.0
 
-                    # 주식 Buy, Sell 포지션 판단
-                    new_point = self.weight_check_term - 1
-                    average_array = [0] * self.weight_check_term
-                    for idx, row_nm in enumerate(self.zscore_data.index):
-                        
-                        # 시그널이 필요한 전달까지 가장 잘 맞추는 Factor 선정
-                        #if row_nm == self.zscore_data.index[-1]:
-                        #    break
-                        
-                        try:
-                            # 과거 moving average 생성 및 시프트
-                            # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
-                            if datetime.strptime(row_nm, '%Y-%m-%d').date() > self.profit_calc_start_date and idx >= (self.min_max_check_term - 1) + max_factor_lag:
-                                # 최신 데이터를 한칸씩 시프트
-                                average_array[:new_point] = average_array[-new_point:]
+                        model_signal = "BUY"
 
-                                # 역관계이면 z-score에 -1을 곱한다.
-                                # Corr가 가장 높은 기간으로 lag 적용(Factor가 Target Index보다 선행)
-                                factor_lag = int(self.corr[index_nm + "_" + column_nm]['lag']) if use_factor_lag == True else 1
-                                # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
-                                if 0:
-                                    average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) \
-                                                        * (self.zscore_data[column_nm][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].min()
-                                                           + self.zscore_data[column_nm][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].max()) / 2
-                                # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
-                                else:
-                                    average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) * self.zscore_data[column_nm][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].mean()
+                        # Correlation lag 사용여부
+                        # 동적 FACTOR LAG 사용: 1, 미사용: 0
+                        use_factor_lag = True
+                        max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag == True else 1
 
-                                # 수익률 계산 시작
-                                # factor 검증 start date 이후 부터 처리
-                                # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
-                                    # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
-                                    if check_first_data == False:
-                                        print (self.window_size, index_nm, row_nm)
-                                        check_first_data = True
+                        # 주식 Buy, Sell 포지션 판단
+                        new_point = self.weight_check_term - 1
+                        average_array = [0] * self.weight_check_term
+                        for idx, row_nm in enumerate(self.zscore_data.index):
 
+                            # 시그널이 필요한 전달까지 가장 잘 맞추는 Factor 선정
+                            #if row_nm == self.zscore_data.index[-1]:
+                            #    break
+
+                            try:
+                                # 과거 moving average 생성 및 시프트
+                                # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
+                                if datetime.strptime(row_nm, '%Y-%m-%d').date() > self.profit_calc_start_date and idx >= (self.min_max_check_term - 1) + max_factor_lag:
+                                    # 최신 데이터를 한칸씩 시프트
+                                    average_array[:new_point] = average_array[-new_point:]
+
+                                    # 역관계이면 z-score에 -1을 곱한다.
+                                    # Corr가 가장 높은 기간으로 lag 적용(Factor가 Target Index보다 선행)
+                                    factor_lag = int(self.corr[index_nm + "_" + column_nm]['lag']) if use_factor_lag == True else 1
+                                    # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                                     if 0:
-                                        # 이번 signal의 위치에 맞게 주식비율 조절 매수
-                                        ai_profit_rate = 0.0159 / 12 # 예탁이용료 1달 수익률
-                                        buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
-                                        if buy_ratio >= 0.0:
-                                            self.model_accumulated_profits[index_nm][column_nm] *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
+                                        average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) \
+                                                            * (self.zscore_data[column_nm][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].min()
+                                                               + self.zscore_data[column_nm][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].max()) / 2
+                                    # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
                                     else:
-                                        '''
-                                        # Test 미국 산업생산
-                                        if (column_nm == '미국 산업생산'):
-                                            print('Test Debug', '\t', column_nm, '\t', row_nm)
-                                        '''
-                                        # 이번 signal이 max인 경우 주식 100% 매수
-                                        #if average_array[new_point] == max(average_array):
-                                        if average_array[-1] >= max(average_array):
-                                            #print(row_nm + "_" + index_nm + "_" + column_nm + " " + str(average_array[-1]) + "/" + str(max(average_array)))
-                                            # self.raw_data[index_nm].index.values[self.window_size + idx]
-                                            # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                            self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
+                                        average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) * self.zscore_data[column_nm][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].mean()
 
-                                            # 3단계. 예측 index & factor & 시계열별로 signal을 가진다
-                                            model_signal = "BUY"
+                                    # 수익률 계산 시작
+                                    # factor 검증 start date 이후 부터 처리
+                                    # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
+                                    if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+                                        # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
+                                        if check_first_data == False:
+                                            print (self.window_size, index_nm, row_nm)
+                                            check_first_data = True
 
-                                            if self.save_datas_excel:
-                                                factor_signal_data[column_nm][idx] = 1
-
+                                        if 0:
+                                            # 이번 signal의 위치에 맞게 주식비율 조절 매수
+                                            ai_profit_rate = 0.0159 / 12 # 예탁이용료 1달 수익률
+                                            buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
+                                            if buy_ratio >= 0.0:
+                                                self.model_accumulated_profits[index_nm][column_nm] *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
                                         else:
-                                            model_signal = "SELL"
+                                            '''
+                                            # Test 미국 산업생산
+                                            if (column_nm == '미국 산업생산'):
+                                                print('Test Debug', '\t', column_nm, '\t', row_nm)
+                                            '''
+                                            # 이번 signal이 max인 경우 주식 100% 매수
+                                            #if average_array[new_point] == max(average_array):
+                                            if average_array[-1] >= max(average_array):
+                                                #print(row_nm + "_" + index_nm + "_" + column_nm + " " + str(average_array[-1]) + "/" + str(max(average_array)))
+                                                # self.raw_data[index_nm].index.values[self.window_size + idx]
+                                                # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
+                                                self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
 
-                                    if self.save_datas_excel:
-                                        average_zscore_data[column_nm][idx] = average_array[new_point]
-                                        max_zscore_data[column_nm][idx] = max(average_array)
+                                                # 3단계. 예측 index & factor & 시계열별로 signal을 가진다
+                                                model_signal = "BUY"
 
-                                    # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                    self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
-                                    #print(index_nm, '\t', column_nm, '\t', row_nm, '\t', self.model_accumulated_profits[index_nm][column_nm], '\t', self.bm_accumulated_profits[index_nm][column_nm])
+                                                if self.save_datas_excel:
+                                                    factor_signal_data[column_nm][idx] = 1
 
-                        except IndexError:
-                            print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
+                                            else:
+                                                model_signal = "SELL"
 
-                        prev_row_nm = row_nm
+                                        if self.save_datas_excel:
+                                            average_zscore_data[column_nm][idx] = average_array[new_point]
+                                            max_zscore_data[column_nm][idx] = max(average_array)
 
-                    # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
-                    if self.model_accumulated_profits[index_nm][column_nm] > 1.0 and self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
-                        print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
-                              #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
-                              self.model_accumulated_profits[index_nm][column_nm], '\t',
-                              self.bm_accumulated_profits[index_nm][column_nm])
+                                        # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
+                                        self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
+                                        #print(index_nm, '\t', column_nm, '\t', row_nm, '\t', self.model_accumulated_profits[index_nm][column_nm], '\t', self.bm_accumulated_profits[index_nm][column_nm])
 
-                    # Factor result DB 저장
-                    if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
-                        date_info = {'start_dt': str(self.profit_calc_start_date), 'end_dt': str(self.profit_calc_end_date),'curr_dt': row_nm}
-                        target_cd = factors_nm_cd_map[index_nm]
-                        factor_cd = factors_nm_cd_map[column_nm]
-                        signal_cd = 1 if model_signal == "BUY" else 0
-                        etc = {'window_size': self.window_size, 'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]),
-                               'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]), 'term_type': self.simulation_term_type}
+                            except IndexError:
+                                print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
 
-                        # 마지막 Signal만 저장
+                            prev_row_nm = row_nm
+
+                        # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
+                        if self.model_accumulated_profits[index_nm][column_nm] > 1.0 and self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
+                            print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
+                                  #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
+                                  self.model_accumulated_profits[index_nm][column_nm], '\t',
+                                  self.bm_accumulated_profits[index_nm][column_nm])
+
+                        # Factor result DB 저장
                         if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
-                            self.db.insert_factor_signal(date_info, target_cd, factor_cd, signal_cd, etc)
+                            date_info = {'start_dt': str(self.profit_calc_start_date), 'end_dt': str(self.profit_calc_end_date),'curr_dt': row_nm}
+                            target_cd = factors_nm_cd_map[index_nm]
+                            factor_cd = factors_nm_cd_map[column_nm]
+                            signal_cd = 1 if model_signal == "BUY" else 0
+                            etc = {'window_size': self.window_size, 'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]),
+                                   'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]), 'term_type': self.simulation_term_type}
+
+                            # 마지막 Signal만 저장
+                            if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
+                                self.db.insert_factor_signal(date_info, target_cd, factor_cd, signal_cd, etc)
+
+                except KeyError:
+                    print("KeyError: " + index_nm + "_" + column_nm + " " + str(self.window_size))
 
             Wrap_Util.SavePickleFile(file='%smodel_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
                                           % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.model_accumulated_profits)
@@ -997,6 +1005,12 @@ class Folione (object):
                     for column_nm_2 in using_data.columns:
                         if column_nm_2 != column_nm_1:
 
+                            '''
+                            # Test
+                            if column_nm_1 == "금" and column_nm_2 == "USD/AUD":
+                                print("!!!!!!!!!!")
+                            '''
+
                             if self.save_correlations_txt == True:
                                 corr_mtrx_str = corr_mtrx_str + column_nm_2 + "\t"
 
@@ -1005,6 +1019,10 @@ class Folione (object):
                             # Correlation을 통해 lag와 상관성(정,역) 확인
                             max_corr = 0.0
                             max_lag_idx = 0
+
+                            corr_direction[column_nm_1 + "_" + column_nm_2] = 1
+                            corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
+                            corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
 
                             use_all_data = True
                             data_size_for_corr = len(using_data.index) - self.max_lag_term if use_all_data == True else self.window_size
