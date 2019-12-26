@@ -391,7 +391,8 @@ class Folione (object):
             # simulation 기간에 해당하지 않는 데이터 삭제
             row_list = copy.deepcopy(self.raw_data.index)
             for row in row_list:
-                if datetime.strptime(row, '%Y-%m-%d').date() < self.profit_calc_start_date + relativedelta(months=self.window_size):
+                #if datetime.strptime(row, '%Y-%m-%d').date() < self.profit_calc_start_date - relativedelta(months=self.window_size):
+                if self.zscore_data.transpose()[row].isnull().sum() > 0:
                     #self.raw_data.drop(index=row, inplace=True)
                     self.zscore_data.drop(index=row, inplace=True)
                     mean_data.drop(index=row, inplace=True)
