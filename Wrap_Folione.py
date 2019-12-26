@@ -463,8 +463,7 @@ class Folione (object):
                         try:
                             # 과거 moving average 생성 및 시프트
                             # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
-                            if datetime.strptime(row_nm, '%Y-%m-%d').date() > self.profit_calc_start_date\
-                                    and idx >= (self.min_max_check_term - 1) + max_factor_lag:
+                            if datetime.strptime(row_nm, '%Y-%m-%d').date() > self.profit_calc_start_date and idx >= (self.min_max_check_term - 1) + max_factor_lag:
                                 # 최신 데이터를 한칸씩 시프트
                                 average_array[:new_point] = average_array[-new_point:]
 
@@ -483,8 +482,7 @@ class Folione (object):
                                 # 수익률 계산 시작
                                 # factor 검증 start date 이후 부터 처리
                                 # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date\
-                                        and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+                                if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
                                     # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                     if check_first_data == False:
                                         print (self.window_size, index_nm, row_nm)
@@ -996,7 +994,7 @@ class Folione (object):
 
                     # column_nm_2은 Factor
                     for column_nm_2 in using_data.columns:
-                        if column_nm_2 != self.target_index_nm:
+                        if column_nm_2 != column_nm_1:
 
                             if self.save_correlations_txt == True:
                                 corr_mtrx_str = corr_mtrx_str + column_nm_2 + "\t"

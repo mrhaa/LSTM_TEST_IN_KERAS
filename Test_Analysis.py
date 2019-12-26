@@ -31,7 +31,7 @@ else:
     pickle_dir = '%s/pickle/' % (base_dir)
 
 # Folione 모델 외부(전단계)
-use_datas_pickle = True # 중간 저장된 raw data 사용 여부
+use_datas_pickle = False # 중간 저장된 raw data 사용 여부
 
 # Folione 작업
 do_simulation = True
@@ -39,7 +39,7 @@ do_simulation = True
 use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
 use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
 use_factor_selection_pickle = False
-make_folione_signal = False
+make_folione_signal = True
 
 # 병렬처리 사용여부
 use_parallel_process = True
