@@ -4,6 +4,7 @@ import copy
 import itertools
 from datetime import datetime
 from datetime import timedelta
+from dateutil.relativedelta import relativedelta
 import operator
 import pandas as pd
 import math
@@ -284,7 +285,7 @@ class Preprocess (object):
 class Folione (object):
 
     def __init__(self, raw_data, window_size, simulation_term_type
-                 , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, target_index_nm
+                 , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, max_lag_term, target_index_nm
                  , use_window_size_pickle=False, use_factor_selection_pickle=False, use_correlation_pickle=False
                  , make_folione_signal = False
                  , save_datas_excel=False, save_correlations_txt=False, save_signal_process_db=False, save_signal_last_db=True, use_parallel_process=False):
@@ -315,6 +316,7 @@ class Folione (object):
         self.target_index_nm = copy.deepcopy(target_index_nm) # target index, Ex. "MSCI ACWI", "MSCI World", "MSCI EM", "KOSPI", "S&P500", "Nikkei225", "상해종합"
         self.min_max_check_term = copy.deepcopy(min_max_check_term) # Min/Max의 평균 Z-Score를 구하기 위한 기간
         self.weight_check_term = copy.deepcopy(weight_check_term) # 평균 Z-Score의 Momentum 안정성을 판단하기 위한 기간
+        self.max_lag_term = copy.deepcopy(max_lag_term) # correlation 계산 시 최대로 줄 수 있는 lag
         
         # 중간 산출물 재사용 여부 확인 Flag
         # 최초 1회는 생성 되어야 하며, data 변경시 재생성 되어야함
@@ -389,7 +391,7 @@ class Folione (object):
             # simulation 기간에 해당하지 않는 데이터 삭제
             row_list = copy.deepcopy(self.raw_data.index)
             for row in row_list:
-                if datetime.strptime(row, '%Y-%m-%d').date() < self.profit_calc_start_date:
+                if datetime.strptime(row, '%Y-%m-%d').date() < self.profit_calc_start_date + relativedelta(months=self.window_size):
                     #self.raw_data.drop(index=row, inplace=True)
                     self.zscore_data.drop(index=row, inplace=True)
                     mean_data.drop(index=row, inplace=True)
@@ -461,7 +463,8 @@ class Folione (object):
                         try:
                             # 과거 moving average 생성 및 시프트
                             # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
-                            if idx >= (self.min_max_check_term - 1) + max_factor_lag:
+                            if datetime.strptime(row_nm, '%Y-%m-%d').date() > self.profit_calc_start_date\
+                                    and idx >= (self.min_max_check_term - 1) + max_factor_lag:
                                 # 최신 데이터를 한칸씩 시프트
                                 average_array[:new_point] = average_array[-new_point:]
 
@@ -480,8 +483,8 @@ class Folione (object):
                                 # 수익률 계산 시작
                                 # factor 검증 start date 이후 부터 처리
                                 # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
-                                    
+                                if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date\
+                                        and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
                                     # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                     if check_first_data == False:
                                         print (self.window_size, index_nm, row_nm)
@@ -502,6 +505,7 @@ class Folione (object):
                                         # 이번 signal이 max인 경우 주식 100% 매수
                                         #if average_array[new_point] == max(average_array):
                                         if average_array[-1] >= max(average_array):
+                                            #print(row_nm + "_" + index_nm + "_" + column_nm + " " + str(average_array[-1]) + "/" + str(max(average_array)))
                                             # self.raw_data[index_nm].index.values[self.window_size + idx]
                                             # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                             self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
@@ -521,7 +525,7 @@ class Folione (object):
 
                                     # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                     self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
-                                    # print(index_nm, '\t', column_nm, '\t', row_nm, '\t', model_accumulated_profits, '\t', bm_accumulated_profits)
+                                    #print(index_nm, '\t', column_nm, '\t', row_nm, '\t', self.model_accumulated_profits[index_nm][column_nm], '\t', self.bm_accumulated_profits[index_nm][column_nm])
 
                         except IndexError:
                             print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
@@ -529,7 +533,7 @@ class Folione (object):
                         prev_row_nm = row_nm
 
                     # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
-                    if self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
+                    if self.model_accumulated_profits[index_nm][column_nm] > 1.0 and self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
                         print(self.window_size, '\t', index_nm, '\t', column_nm, '\t',
                               #self.corr_max[index_nm + "_" + column_nm], '\t', self.corr_max[index_nm + "_" + column_nm], '\t',
                               self.model_accumulated_profits[index_nm][column_nm], '\t',
@@ -1002,12 +1006,10 @@ class Folione (object):
                             # Correlation을 통해 lag와 상관성(정,역) 확인
                             max_corr = 0.0
                             max_lag_idx = 0
-                            # 0 ~ 3개월 까지 Factor와 Target Index에 lag 적용 테스트
-                            max_lag_term = 3
 
                             use_all_data = True
-                            data_size_for_corr = len(using_data.index) - max_lag_term if use_all_data == True else self.window_size
-                            for lag_term in range(1, max_lag_term + 1):
+                            data_size_for_corr = len(using_data.index) - self.max_lag_term if use_all_data == True else self.window_size
+                            for lag_term in range(1, self.max_lag_term + 1):
 
                                 # 문법상 첫번째 구간(Factor와 Target Index의 lag 없이 동일 시점 적용)은 그냥 처리해야 함
                                 target_data = using_data[column_nm_1][-data_size_for_corr:]
@@ -1034,11 +1036,12 @@ class Folione (object):
                                         pos_cnt = 0
                                         neg_cnt = 0
                                         unk_cnt = 0
-                                        for i, date in enumerate(dates):
+                                        for i in range(len(dates)):
                                             # factor_data에 shift를 발생시켰기 때문에 key를 사용하지 않고 index를 사용해야함.
                                             target_val = target_data[i]
                                             factor_val = factor_data[i]
-
+                                            
+                                            # i가 1인 경우부터 선후행관계가 형성됨
                                             if i > 0:
                                                 # 기준금리처럼 Factor의 값에 변화가 거의 없는 경우
                                                 if factor_val == prev_factor_val:
@@ -1073,7 +1076,6 @@ class Folione (object):
                                         self.db.insert_corr_law_data(column_nm_1, column_nm_2, str(self.profit_calc_end_date),
                                                                 lag_term, self.window_size , target_data, factor_data, hit_yn_data
                                                                 , using_data_type)
-
 
                                 # Correlation을 통해 lag와 상관성(정,역) 확인
                                 if math.isnan(rolling_correlations[column_nm_1][column_nm_2][lag_term]) == False:

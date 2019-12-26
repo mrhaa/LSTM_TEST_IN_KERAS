@@ -39,7 +39,7 @@ do_simulation = True
 use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
 use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
 use_factor_selection_pickle = False
-make_folione_signal = True
+make_folione_signal = False
 
 # 병렬처리 사용여부
 use_parallel_process = True
@@ -84,6 +84,10 @@ if __name__ == '__main__':
         # Z-Score의 최대 기간과 동일(월 단위)
         raw_data_spare_term = 36
 
+        min_max_check_term = 4  # 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
+        weight_check_term = 8
+        max_lag_term = 3  # max correlation을 판단하기 위한 최대 lag
+
         # DB에서 Raw 데이터를 읽어서 전처리하는 경우
         if use_datas_pickle == False:
             # Wrap운용팀 DB Connect
@@ -95,7 +99,8 @@ if __name__ == '__main__':
 
             # 데이터 Info Read
             # simulation기간 + z-score를 계산할 수 있은 추가기간이 factor별 최소 필요 데이터 수량
-            data_info = db.get_data_info(min_num=int((datetime.strptime(simulation_end_date, '%Y-%m-%d')-datetime.strptime(simulation_start_date, '%Y-%m-%d')).days/30)+raw_data_spare_term)
+            data_info = db.get_data_info(min_num=int((datetime.strptime(simulation_end_date, '%Y-%m-%d')-datetime.strptime(simulation_start_date, '%Y-%m-%d')).days/30)
+                                                 + raw_data_spare_term + max(min_max_check_term, weight_check_term) + max_lag_term)
             preprocess.SetDataInfo(data_info=data_info, data_info_columns=["아이템코드", "아이템명", "개수", "시작일", "마지막일"])
 
             # Factor 별 데이터가 존재하는 기간 설정
@@ -120,13 +125,16 @@ if __name__ == '__main__':
             # 유효하지 않은 기간의 데이터 삭제
             # drop_basis_from: '2007-01-31', drop_basis_to: '가장 최근 말일'는 가장 유효한 factor를 많이 사용할 수 있는 기간을 찾아 적용하였음.
             #pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2001-01-01', drop_basis_to='2018-03-31')
-            print("simulation_data_period: ", str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term)), simulation_end_date)
+            print("simulation_data_period: ", str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date()
+                                                  - relativedelta(months=raw_data_spare_term + max(min_max_check_term, weight_check_term) + max_lag_term))
+                                            , simulation_end_date)
 
             # factor에 따라 발표 시점에 lag가 있어 shift가 필요한 경우들이 있음.
             # lag때문에 사용하지 못하게 되는 factor가 많기 때문에 관련 내용을 처리할 수 있도록 수정이 필요
             lag_shift_yn = True
-            preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date() - relativedelta(months=raw_data_spare_term))
-                                                               , drop_basis_to=simulation_end_date, lag_shift_yn=lag_shift_yn)
+            preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date()
+                                                           - relativedelta(months=raw_data_spare_term + max(min_max_check_term, weight_check_term) + max_lag_term))
+                                    , drop_basis_to=simulation_end_date, lag_shift_yn=lag_shift_yn)
             pivoted_sampled_datas = preprocess.GetPivotedSampledDatas()
             pivoted_reference_datas = preprocess.GetPivotedReferenceDatas()
             init_pivoted_sampled_datas = preprocess.GetInitPivotedSampledDatas()
@@ -155,16 +163,9 @@ if __name__ == '__main__':
             #window_sizes = {"from": raw_data_spare_term, "to": raw_data_spare_term}
             profit_calc_start_date = simulation_start_date
             profit_calc_end_date = simulation_end_date
-            min_max_check_term = 4 # 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
-            weight_check_term = 8
 
-            # 장기 시뮬레이션
-            if simulation_term_type == 1:
-                target_index_nm_list = ["MSCI World", "KOSPI", "S&P500"]
-            # 중기, 단기 시뮬레이션
-            else:
-                target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
 
+            target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
 
             # Test
             #target_index_nm_list = ["S&P500"]
@@ -176,7 +177,7 @@ if __name__ == '__main__':
             for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
                 for target_index_nm in target_index_nm_list:
                     folione = Folione(pivoted_sampled_datas_last_pure_version, window_size, simulation_term_type
-                                      , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, target_index_nm
+                                      , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, max_lag_term, target_index_nm
                                       , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
                                       , make_folione_signal
                                       , save_datas_excel, save_correlations_txt, save_signal_process_db, save_signal_last_db, use_parallel_process)
