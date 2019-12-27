@@ -390,9 +390,9 @@ class Folione (object):
 
             # simulation 기간에 해당하지 않는 데이터 삭제
             row_list = copy.deepcopy(self.raw_data.index)
-            for row in row_list:
+            for idx, row in enumerate(row_list):
                 #if datetime.strptime(row, '%Y-%m-%d').date() < self.profit_calc_start_date - relativedelta(months=self.window_size):
-                if self.zscore_data.transpose()[row].isnull().sum() > 0:
+                if idx < self.window_size-1:
                     #self.raw_data.drop(index=row, inplace=True)
                     self.zscore_data.drop(index=row, inplace=True)
                     mean_data.drop(index=row, inplace=True)
@@ -469,7 +469,7 @@ class Folione (object):
                             try:
                                 # 과거 moving average 생성 및 시프트
                                 # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
-                                if datetime.strptime(row_nm, '%Y-%m-%d').date() > self.profit_calc_start_date and idx >= (self.min_max_check_term - 1) + max_factor_lag:
+                                if idx >= (self.min_max_check_term - 1) + max_factor_lag:
                                     # 최신 데이터를 한칸씩 시프트
                                     average_array[:new_point] = average_array[-new_point:]
 
@@ -488,7 +488,8 @@ class Folione (object):
                                     # 수익률 계산 시작
                                     # factor 검증 start date 이후 부터 처리
                                     # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                    if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+                                    if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date\
+                                            and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
                                         # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                         if check_first_data == False:
                                             print (self.window_size, index_nm, row_nm)
@@ -642,8 +643,8 @@ class Folione (object):
 
             # Correlation lag 사용여부
             # FACTOR LAG 사용: 1, 미사용: 0
-            use_factor_lag = 1
-            max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag else 0
+            use_factor_lag = True
+            max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag == True else 1
 
             new_point = self.weight_check_term - 1
             average_array = [0] * self.weight_check_term
@@ -657,20 +658,21 @@ class Folione (object):
                         average_array[-1] = 0
                         # 다수 factor를 이용해 모델 예측하는 경우 factor들의 값을 더한 후 평균
                         for factor in simulate_factor_list:
-                            factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag else 0
+                            factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag == True else 1
                             # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                             if 0:
                                 average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * \
-                                                     (self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
-                                                      + self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
+                                                     (self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].min()
+                                                      + self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].max()) / 2
                             # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
                             else:
-                                average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
+                                average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].mean()
                         average_array[-1] /= len(simulate_factor_list)
 
                         # 수익률 계산 시작
                         # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                        if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+                        if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date \
+                                and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
 
                             # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                             if check_first_data == False:
@@ -837,8 +839,8 @@ class Folione (object):
 
                 # Correlation lag 사용여부
                 # FACTOR LAG 사용: 1, 미사용: 0
-                use_factor_lag = 1
-                max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag else 0
+                use_factor_lag = True
+                max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag == True else 1
 
                 new_point = self.weight_check_term - 1
                 average_array = [0] * self.weight_check_term
@@ -852,20 +854,21 @@ class Folione (object):
                             average_array[-1] = 0
                             # 다수 factor를 이용해 모델 예측하는 경우 factor들의 값을 더한 후 평균
                             for factor in signal_factors_list:
-                                factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag else 0
+                                factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag == True else 1
                                 # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
                                 if 0:
                                     average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) \
-                                                         * (self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].min()
-                                                            + self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].max()) / 2
+                                                         * (self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].min()
+                                                            + self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].max()) / 2
                                 # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
                                 else:
-                                    average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - (self.min_max_check_term - 1) - factor_lag:idx - factor_lag + 1].mean()
+                                    average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].mean()
                             average_array[-1] /= len(signal_factors_list)
 
                             # 수익률 계산 시작
                             # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                            if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date and idx - (self.min_max_check_term - 1 + max_factor_lag) >= self.weight_check_term:
+                            if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date\
+                                    and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
 
                                 # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                 if check_first_data == False:

@@ -100,7 +100,7 @@ if __name__ == '__main__':
             # 데이터 Info Read
             # simulation기간 + z-score를 계산할 수 있은 추가기간이 factor별 최소 필요 데이터 수량
             data_info = db.get_data_info(min_num=int((datetime.strptime(simulation_end_date, '%Y-%m-%d')-datetime.strptime(simulation_start_date, '%Y-%m-%d')).days/30)
-                                                 + raw_data_spare_term + max(min_max_check_term, weight_check_term) + max_lag_term)
+                                                 + raw_data_spare_term + min_max_check_term + weight_check_term + max_lag_term)
             preprocess.SetDataInfo(data_info=data_info, data_info_columns=["아이템코드", "아이템명", "개수", "시작일", "마지막일"])
 
             # Factor 별 데이터가 존재하는 기간 설정
@@ -126,14 +126,14 @@ if __name__ == '__main__':
             # drop_basis_from: '2007-01-31', drop_basis_to: '가장 최근 말일'는 가장 유효한 factor를 많이 사용할 수 있는 기간을 찾아 적용하였음.
             #pivoted_sampled_datas = preprocess.DropInvalidData(drop_basis_from='2001-01-01', drop_basis_to='2018-03-31')
             print("simulation_data_period: ", str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date()
-                                                  - relativedelta(months=raw_data_spare_term + max(min_max_check_term, weight_check_term) + max_lag_term))
+                                                  - relativedelta(months=raw_data_spare_term + min_max_check_term + weight_check_term + max_lag_term))
                                             , simulation_end_date)
 
             # factor에 따라 발표 시점에 lag가 있어 shift가 필요한 경우들이 있음.
             # lag때문에 사용하지 못하게 되는 factor가 많기 때문에 관련 내용을 처리할 수 있도록 수정이 필요
             lag_shift_yn = True
             preprocess.DropInvalidData(drop_basis_from=str(datetime.strptime(simulation_start_date, '%Y-%m-%d').date()
-                                                           - relativedelta(months=raw_data_spare_term + max(min_max_check_term, weight_check_term) + max_lag_term))
+                                                           - relativedelta(months=raw_data_spare_term + min_max_check_term + weight_check_term + max_lag_term))
                                     , drop_basis_to=simulation_end_date, lag_shift_yn=lag_shift_yn)
             pivoted_sampled_datas = preprocess.GetPivotedSampledDatas()
             pivoted_reference_datas = preprocess.GetPivotedReferenceDatas()
@@ -160,7 +160,6 @@ if __name__ == '__main__':
             # 실험적으로 24개월보다 기간이 Window기간이 짧은 경우 Z-Score의 통계적 신뢰성이 떨어진다.
             # Correlation이 불안정함(+, - 반복)
             window_sizes = {"from": 24, "to": raw_data_spare_term}
-            #window_sizes = {"from": raw_data_spare_term, "to": raw_data_spare_term}
             profit_calc_start_date = simulation_start_date
             profit_calc_end_date = simulation_end_date
 
@@ -168,7 +167,7 @@ if __name__ == '__main__':
             target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
 
             # Test
-            #target_index_nm_list = ["S&P500"]
+            #target_index_nm_list = ["KOSPI"]
 
 
             max_proces_num = 10
