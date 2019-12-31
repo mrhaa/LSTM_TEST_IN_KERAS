@@ -15,7 +15,7 @@ FROM result_last a
 		  , term_type			 AS 'term_type'
 		  , MAX(model_profit) AS 'model_profit'
 	FROM result_last
-	WHERE start_dt = '2012-01-01'
+	WHERE start_dt = '2011-12-31'
 	  AND end_dt = '2019-11-30'
 	GROUP BY start_dt, end_dt, target_cd, term_type
 ) b

@@ -430,11 +430,7 @@ class Folione (object):
 
             check_first_data = False
             for column_nm in self.zscore_data.columns:
-                '''
-                # Test
-                if index_nm == "금" and column_nm == "USD/AUD":
-                    print("@@@@@@@@@@@@@")
-                '''
+
                 if self.save_datas_excel:
                     factor_signal_data[column_nm].values.fill(0)
                     average_zscore_data[column_nm].values.fill(0)
@@ -452,8 +448,7 @@ class Folione (object):
 
                         model_signal = "BUY"
 
-                        # Correlation lag 사용여부
-                        # 동적 FACTOR LAG 사용: 1, 미사용: 0
+                        # Target Index와 Factor의 상관성이 가장 높은 lag를 찾아 적용하는 로직 사용여부
                         use_factor_lag = True
                         max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag == True else 1
 
@@ -462,24 +457,29 @@ class Folione (object):
                         average_array = [0] * self.weight_check_term
                         for i, row_nm in enumerate(self.zscore_data.index):
 
-                            # 한달 이후를 예상하기 위한 것이기 때문에 사용하는 데이터를 한달 delay 시킨다
-                            idx = i+1
+                            # 기본적으로 dataframe은 동일 시점(월 말일)에 release된 데이터가 align되어 있다.
+                            # 하지만 Target Index를 Factor를 통해 예측하는 것이 로직의 기본이기 때문에 1이상의 delay가 발생해야함.
 
-                            # 시그널이 필요한 전달까지 가장 잘 맞추는 Factor 선정
-                            #if row_nm == self.zscore_data.index[-1]:
-                            #    break
+                            # 로직의 기본은 가장 최근 데이터를 이용하여 미래를 예측하는 것이다.
+                            # row_nm(i)은 예측작업을 진행하기 위해 사용되는 데이터의 날짜이다.
+                            # 즉, row_nm(i)에 사용된 데이터를 이용한 결과는 next_row_nm이 되어야 확인될 수 있다.
+                            # 또한, 마지막 예측은 Target Index의 결과를 모르기 때문에 수익률 결과를 알 수 없다.
+
+                            # factor lag를 적용하면서 사용되는 데이터 사용을 위한 index에 1개월에 delay가 발생하면서 예측을 위해 가장 최근 데이터를 사용하지 못하는 상황 발생.
+                            # 따라서, 데이터의 index에 1을 더해 가장 최근 데이터까지 사용하여 예측을 시도한다.
+                            idx = i + 1
 
                             try:
                                 # 과거 moving average 생성 및 시프트
                                 # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
                                 if idx >= (self.min_max_check_term - 1) + max_factor_lag:
+
                                     # 최신 데이터를 한칸씩 시프트
                                     average_array[:new_point] = average_array[-new_point:]
 
-                                    # 역관계이면 z-score에 -1을 곱한다.
-                                    # Corr가 가장 높은 기간으로 lag 적용(Factor가 Target Index보다 선행)
+                                    # Target Index와 Factor별로 상관성이 가장 높은 lag를 Factor에 적용한다.
                                     factor_lag = int(self.corr[index_nm + "_" + column_nm]['lag']) if use_factor_lag == True else 1
-                                    # 과거 Folione과 동일한 로직(중간값 개념), lag 개념 추가
+
                                     if 0:
                                         average_array[-1] = int(self.corr[index_nm + "_" + column_nm]['direction']) \
                                                             * (self.zscore_data[column_nm][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].min()
@@ -494,12 +494,13 @@ class Folione (object):
                                     if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date\
                                             and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
 
-                                        # factor를 이용해서 마지막 signal을 뽑는 방법으로 변경
+                                        # 결과적으로 row_nm이 다음달의 signal을 예측하는 시점.
+                                        # 마지막 데이터를 이용하여 예측하는 경우는 수익률을 구할 수 없기 때문에 해당시점과 동일한 값을 사용
                                         next_row_nm = self.zscore_data.index[idx] if idx < len(self.zscore_data.index) else row_nm
 
                                         # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                         if check_first_data == False:
-                                            print (self.window_size, index_nm, row_nm)
+                                            print (index_nm + '를 예측하기 위해 ' + row_nm + '시점부터 예측을 시작(' + self.window_size + ')')
                                             check_first_data = True
 
                                         if 0:
@@ -509,42 +510,28 @@ class Folione (object):
                                             if buy_ratio >= 0.0:
                                                 self.model_accumulated_profits[index_nm][column_nm] *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
                                         else:
-                                            '''
-                                            # Test 미국 산업생산
-                                            if (column_nm == 'BBA-10Y Spread'):
-                                                print('Test Debug', '\t', column_nm, '\t', row_nm)
-                                            '''
-                                            # 이번 signal이 max인 경우 주식 100% 매수
-                                            #if average_array[new_point] == max(average_array):
+                                            # 이번 스토어가 max인 경우 매수 시그널
                                             if average_array[-1] >= max(average_array):
-                                                #print(row_nm + "_" + index_nm + "_" + column_nm + " " + str(average_array[-1]) + "/" + str(max(average_array)))
-                                                # self.raw_data[index_nm].index.values[self.window_size + idx]
-                                                # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                                 self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
                                                 # 3단계. 예측 index & factor & 시계열별로 signal을 가진다
                                                 model_signal = "BUY"
 
                                                 if self.save_datas_excel:
-                                                    if idx < len(self.zscore_data.index):
-                                                        factor_signal_data[column_nm][idx] = 1
+                                                    factor_signal_data[column_nm][row_nm] = 1
 
                                             else:
                                                 model_signal = "SELL"
 
                                         if self.save_datas_excel:
-                                            if idx < len(self.zscore_data.index):
-                                                average_zscore_data[column_nm][idx] = average_array[new_point]
-                                                max_zscore_data[column_nm][idx] = max(average_array)
+                                            average_zscore_data[column_nm][row_nm] = average_array[new_point]
+                                            max_zscore_data[column_nm][row_nm] = max(average_array)
 
                                         # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                         self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
-                                        #print(index_nm, '\t', column_nm, '\t', row_nm, '\t', self.model_accumulated_profits[index_nm][column_nm], '\t', self.bm_accumulated_profits[index_nm][column_nm])
 
                             except IndexError:
                                 print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
-
-                            #prev_row_nm = row_nm
 
                         # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
                         if self.model_accumulated_profits[index_nm][column_nm] > 1.0 and self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
@@ -853,8 +840,7 @@ class Folione (object):
                 accumulated_model_profit = 1.0
                 accumulated_bm_profit = 1.0
 
-                # Correlation lag 사용여부
-                # FACTOR LAG 사용: 1, 미사용: 0
+                # Target Index와 Factor의 상관성이 가장 높은 lag를 찾아 적용하는 로직 사용여부
                 use_factor_lag = True
                 max_factor_lag = int(max(self.corr.transpose()['lag'].values)) if use_factor_lag == True else 1
 
@@ -862,7 +848,16 @@ class Folione (object):
                 average_array = [0] * self.weight_check_term
                 for i, row_nm in enumerate(self.zscore_data.index):
 
-                    # 한달 이후를 예상하기 위한 것이기 때문에 사용하는 데이터를 한달 delay 시킨다
+                    # 기본적으로 dataframe은 동일 시점(월 말일)에 release된 데이터가 align되어 있다.
+                    # 하지만 Target Index를 Factor를 통해 예측하는 것이 로직의 기본이기 때문에 1이상의 delay가 발생해야함.
+
+                    # 로직의 기본은 가장 최근 데이터를 이용하여 미래를 예측하는 것이다.
+                    # row_nm(i)은 예측작업을 진행하기 위해 사용되는 데이터의 날짜이다.
+                    # 즉, row_nm(i)에 사용된 데이터를 이용한 결과는 next_row_nm이 되어야 확인될 수 있다.
+                    # 또한, 마지막 예측은 Target Index의 결과를 모르기 때문에 수익률 결과를 알 수 없다.
+
+                    # factor lag를 적용하면서 사용되는 데이터 사용을 위한 index에 1개월에 delay가 발생하면서 예측을 위해 가장 최근 데이터를 사용하지 못하는 상황 발생.
+                    # 따라서, 데이터의 index에 1을 더해 가장 최근 데이터까지 사용하여 예측을 시도한다.
                     idx = i+1
 
                     try:
@@ -984,11 +979,6 @@ class Folione (object):
                     # 병렬처리 아닌 경우 로그 프린트
                     if self.use_parallel_process == False:
                         print(signal_str)
-
-                    #signal_str += '\n'
-                    #f.write(signal_str)
-
-        #f.close()
 
         if self.save_datas_excel:
             Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
