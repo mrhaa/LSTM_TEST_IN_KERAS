@@ -1,4 +1,4 @@
-select a.start_dt AS "시물 시작일"
+SELECT a.start_dt AS "시물 시작일"
      , a.end_dt AS "시뮬 기준일"
      , c.nm AS "타겟 INDEX"
      , a.multi_factors_nm AS "멀티펙터"
@@ -28,7 +28,7 @@ select a.start_dt AS "시물 시작일"
      , l.factor_profit - l.index_profit AS "9번 수익률"
      , w.nm AS "10번 펙터"
      , m.factor_profit - m.index_profit AS "10번 수익률"
-from result_last a
+FROM result_last a
 LEFT JOIN result_factor AS d
 	ON a.factor_cd0 = d.factor_cd
   AND a.start_dt = d.start_dt
@@ -110,21 +110,21 @@ LEFT JOIN item AS v
 LEFT JOIN item AS w
     ON a.factor_cd9 = w.cd
 , (
-	select start_dt 			 as 'start_dt'
-		  , end_dt 				 as 'end_dt'
-		  , target_cd			 as 'target_cd'
-		  , term_type			 as 'term_type'
-		  , max(model_profit) as 'model_profit'
-	from result_last
-	where start_dt in ('2012-01-01')
-	and end_dt = '2019-11-30'
-	group by start_dt, end_dt, target_cd, term_type
+	SELECT start_dt 			 AS 'start_dt'
+		  , end_dt 				 AS 'end_dt'
+		  , target_cd			 AS 'target_cd'
+		  , term_type			 AS 'term_type'
+		  , MAX(model_profit) AS 'model_profit'
+	FROM result_last
+	WHERE start_dt = '2012-01-01'
+	  AND end_dt = '2019-11-30'
+	GROUP BY start_dt, end_dt, target_cd, term_type
 ) b
 , item c
-where a.start_dt = b.start_dt
-and a.end_dt = b.end_dt
-and a.target_cd = b.target_cd
-and a.model_profit = b.model_profit
-and a.term_type = b.term_type
-and a.target_cd = c.cd
-;
+WHERE a.start_dt = b.start_dt
+  AND a.end_dt = b.end_dt
+  AND a.target_cd = b.target_cd
+  AND a.model_profit = b.model_profit
+  AND a.term_type = b.term_type
+  AND a.target_cd = c.cd
+

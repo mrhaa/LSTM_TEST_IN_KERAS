@@ -460,7 +460,10 @@ class Folione (object):
                         # 주식 Buy, Sell 포지션 판단
                         new_point = self.weight_check_term - 1
                         average_array = [0] * self.weight_check_term
-                        for idx, row_nm in enumerate(self.zscore_data.index):
+                        for i, row_nm in enumerate(self.zscore_data.index):
+
+                            # 한달 이후를 예상하기 위한 것이기 때문에 사용하는 데이터를 한달 delay 시킨다
+                            idx = i+1
 
                             # 시그널이 필요한 전달까지 가장 잘 맞추는 Factor 선정
                             #if row_nm == self.zscore_data.index[-1]:
@@ -490,6 +493,10 @@ class Folione (object):
                                     # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
                                     if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date\
                                             and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
+
+                                        # factor를 이용해서 마지막 signal을 뽑는 방법으로 변경
+                                        next_row_nm = self.zscore_data.index[idx] if idx < len(self.zscore_data.index) else row_nm
+
                                         # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                         if check_first_data == False:
                                             print (self.window_size, index_nm, row_nm)
@@ -504,7 +511,7 @@ class Folione (object):
                                         else:
                                             '''
                                             # Test 미국 산업생산
-                                            if (column_nm == '미국 산업생산'):
+                                            if (column_nm == 'BBA-10Y Spread'):
                                                 print('Test Debug', '\t', column_nm, '\t', row_nm)
                                             '''
                                             # 이번 signal이 max인 경우 주식 100% 매수
@@ -513,29 +520,31 @@ class Folione (object):
                                                 #print(row_nm + "_" + index_nm + "_" + column_nm + " " + str(average_array[-1]) + "/" + str(max(average_array)))
                                                 # self.raw_data[index_nm].index.values[self.window_size + idx]
                                                 # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                                self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
+                                                self.model_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
                                                 # 3단계. 예측 index & factor & 시계열별로 signal을 가진다
                                                 model_signal = "BUY"
 
                                                 if self.save_datas_excel:
-                                                    factor_signal_data[column_nm][idx] = 1
+                                                    if idx < len(self.zscore_data.index):
+                                                        factor_signal_data[column_nm][idx] = 1
 
                                             else:
                                                 model_signal = "SELL"
 
                                         if self.save_datas_excel:
-                                            average_zscore_data[column_nm][idx] = average_array[new_point]
-                                            max_zscore_data[column_nm][idx] = max(average_array)
+                                            if idx < len(self.zscore_data.index):
+                                                average_zscore_data[column_nm][idx] = average_array[new_point]
+                                                max_zscore_data[column_nm][idx] = max(average_array)
 
                                         # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                        self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][row_nm] / self.raw_data[index_nm][prev_row_nm])
+                                        self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
                                         #print(index_nm, '\t', column_nm, '\t', row_nm, '\t', self.model_accumulated_profits[index_nm][column_nm], '\t', self.bm_accumulated_profits[index_nm][column_nm])
 
                             except IndexError:
                                 print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
 
-                            prev_row_nm = row_nm
+                            #prev_row_nm = row_nm
 
                         # 모델의 성능이 BM 보다 좋은 팩터 결과만 출력
                         if self.model_accumulated_profits[index_nm][column_nm] > 1.0 and self.model_accumulated_profits[index_nm][column_nm] > self.bm_accumulated_profits[index_nm][column_nm]:
@@ -648,7 +657,11 @@ class Folione (object):
 
             new_point = self.weight_check_term - 1
             average_array = [0] * self.weight_check_term
-            for idx, row_nm in enumerate(self.zscore_data.index):
+            for i, row_nm in enumerate(self.zscore_data.index):
+
+                # 한달 이후를 예상하기 위한 것이기 때문에 사용하는 데이터를 한달 delay 시킨다
+                idx = i+1
+
                 try:
                     # 과거 moving average 생성 및 시프트
                     # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
@@ -674,6 +687,9 @@ class Folione (object):
                         if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date \
                                 and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
 
+                            # factor를 이용해서 마지막 signal을 뽑는 방법으로 변경
+                            next_row_nm = self.zscore_data.index[idx] if idx < len(self.zscore_data.index) else row_nm
+
                             # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                             if check_first_data == False:
                                 #print(self.window_size, index_nm, row_nm)
@@ -686,13 +702,13 @@ class Folione (object):
                                 ai_profit_rate = 0.0159 / 12  # 예탁이용료 1달 수익률
                                 buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
                                 if buy_ratio >= 0.0:
-                                    accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
+                                    accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm] - 1) + (1 - buy_ratio) * ai_profit_rate))
                             else:
                                 #if average_array[new_point] == max(average_array):
                                 if average_array[-1] == max(average_array):
                                     # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                     if self.window_size + idx < len(self.raw_data.index):
-                                        accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                        accumulated_model_profit *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
                                     # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
                                     self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
@@ -708,8 +724,8 @@ class Folione (object):
                                 max_zscore_data[signal_factors_nm][row_nm] = max(average_array)
 
                             # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                            if self.window_size + idx < len(self.raw_data.index):
-                                accumulated_bm_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                            #if self.window_size + idx < len(self.raw_data.index):
+                            accumulated_bm_profit *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
                 except IndexError:
                     print("IndexError:\t", index_nm, '\t', signal_factors_nm, '\t', row_nm)
@@ -844,7 +860,11 @@ class Folione (object):
 
                 new_point = self.weight_check_term - 1
                 average_array = [0] * self.weight_check_term
-                for idx, row_nm in enumerate(self.zscore_data.index):
+                for i, row_nm in enumerate(self.zscore_data.index):
+
+                    # 한달 이후를 예상하기 위한 것이기 때문에 사용하는 데이터를 한달 delay 시킨다
+                    idx = i+1
+
                     try:
                         # 과거 moving average 생성 및 시프트
                         # min_max_check_term 개수 만큼 raw 데이터가 생겨야 average 생성 가능
@@ -870,6 +890,9 @@ class Folione (object):
                             if datetime.strptime(row_nm, '%Y-%m-%d').date() >= self.profit_calc_start_date\
                                     and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
 
+                                # factor를 이용해서 마지막 signal을 뽑는 방법으로 변경
+                                next_row_nm = self.zscore_data.index[idx] if idx < len(self.zscore_data.index) else row_nm
+
                                 # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                 if check_first_data == False:
                                     #print(self.window_size, index_nm, row_nm)
@@ -882,13 +905,13 @@ class Folione (object):
                                     ai_profit_rate = 0.0159 / 12  # 예탁이용료 1달 수익률
                                     buy_ratio = (average_array[new_point] - average_array.min()) / (average_array.max() - average_array.min())
                                     if buy_ratio >= 0.0:
-                                        accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1] - 1) + (1 - buy_ratio) * ai_profit_rate))
+                                        accumulated_model_profit *= (1 + (buy_ratio * (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm] - 1) + (1 - buy_ratio) * ai_profit_rate))
                                 else:
                                     #if average_array[new_point] == max(average_array):
                                     if average_array[-1] == max(average_array):
                                         # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                         if self.window_size + idx < len(self.raw_data.index):
-                                            accumulated_model_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                            accumulated_model_profit *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
                                         # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
                                         self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
@@ -904,8 +927,8 @@ class Folione (object):
                                     max_zscore_data[signal_factors_nm][row_nm] = max(average_array)
 
                                 # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
-                                if self.window_size + idx < len(self.raw_data.index):
-                                    accumulated_bm_profit *= (self.raw_data[index_nm][self.window_size + idx] / self.raw_data[index_nm][self.window_size + idx - 1])
+                                #if self.window_size + idx < len(self.raw_data.index):
+                                accumulated_bm_profit *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
                                 # 시그널 DB 저장
                                 if self.save_signal_process_db == True or (self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date)):
@@ -918,7 +941,7 @@ class Folione (object):
                                     # 발생하는 모든 과정의 Signal을 저장
                                     if self.save_signal_process_db == True:
                                         table_nm = 'result'
-                                        self.db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
+                                        self.db.insert_folione_signal_history(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
 
                                     # 마지막 Signal만 저장
                                     if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
@@ -1022,11 +1045,13 @@ class Folione (object):
                             # Correlation을 통해 lag와 상관성(정,역) 확인
                             max_corr = 0.0
                             max_lag_idx = 0
-
+                            
+                            # 상관성에 대한 초기값 설정
                             corr_direction[column_nm_1 + "_" + column_nm_2] = 1
                             corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
                             corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
-
+                            
+                            # 상관성을 판단하기 위한 데이터량 정의
                             use_all_data = True
                             data_size_for_corr = len(using_data.index) - self.max_lag_term if use_all_data == True else self.window_size
                             for lag_term in range(1, self.max_lag_term + 1):

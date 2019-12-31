@@ -339,6 +339,36 @@ class WrapDB(object):
 
             return False
 
+    def insert_folione_signal_history(self, table_nm, date_info, target_cd, factor_info, signal_cd, etc):
+
+        # Factor의 갯수가 1~10개로 유동적임
+        sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
+        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s"
+        sql = sql + ", %s, %s, %s, %s, %s, now(), now())"
+        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
+
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
+        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], etc['term_type']]
+        sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit']]
+        sql_arg = tuple(sql_arg)
+
+        #print(sql % sql_arg)
+
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
+
+            # DB 반영
+            self.conn.commit()
+
+            return True
+
+        except:
+            self.conn.rollback()
+
+            return False
+
     def insert_factor_signal(self, date_info, target_cd, factor_cd, signal_cd, etc):
 
         # Factor의 갯수가 1~10개로 유동적임
