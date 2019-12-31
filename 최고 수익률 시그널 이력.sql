@@ -32,6 +32,7 @@ SELECT b.start_dt
      , b.multi_factors_nm
      , b.window_size
      , b.signal_cd
+     , b.score
      , b.model_profit
      , b.bm_profit
   FROM max_profit_profile a

@@ -500,7 +500,7 @@ class Folione (object):
 
                                         # Test, Debug용, Window Size에 따라 누적수익률 시작점 확인
                                         if check_first_data == False:
-                                            print (index_nm + '를 예측하기 위해 ' + row_nm + '시점부터 예측을 시작(' + self.window_size + ')')
+                                            print (index_nm + '를 예측하기 위해 ' + row_nm + '시점부터 예측을 시작(' + str(self.window_size) + ')')
                                             check_first_data = True
 
                                         if 0:
@@ -547,7 +547,8 @@ class Folione (object):
                             factor_cd = factors_nm_cd_map[column_nm]
                             signal_cd = 1 if model_signal == "BUY" else 0
                             etc = {'window_size': self.window_size, 'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]),
-                                   'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]), 'term_type': self.simulation_term_type}
+                                   'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]), 'term_type': self.simulation_term_type,
+                                   'score': float(average_array[-1])}
 
                             # 마지막 Signal만 저장
                             if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
@@ -931,7 +932,7 @@ class Folione (object):
                                     target_cd = factors_nm_cd_map[index_nm]
                                     factor_info = {'factors_num': len(signal_factors_list),'multi_factors_nm': signal_factors_nm,'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
                                     signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
-                                    etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type}
+                                    etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type, 'score': float(average_array[-1])}
 
                                     # 발생하는 모든 과정의 Signal을 저장
                                     if self.save_signal_process_db == True:

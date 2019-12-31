@@ -309,18 +309,18 @@ class WrapDB(object):
         sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", factor_cd" + str(idx)
-        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, create_tm, update_tm)"
+        sql = sql + ", window_size, signal_cd, score, model_profit, bm_profit, term_type, create_tm, update_tm)"
         sql = sql + " VALUES (%s, %s, %s, %s, %s, %s"
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", %s"
-        sql = sql + ", %s, %s, %s, %s, %s, now(), now())"
-        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
+        sql = sql + ", %s, %s, %s, %s, %s, %s, now(), now())"
+        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, score=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
 
         sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql_arg += [factor_info['factors_cd'][idx]]
-        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], etc['term_type']]
-        sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit']]
+        sql_arg += [etc['window_size'], signal_cd, etc['score'], etc['model_profit'], etc['bm_profit'], etc['term_type']]
+        sql_arg += [signal_cd, etc['score'], etc['model_profit'], etc['bm_profit']]
         sql_arg = tuple(sql_arg)
 
         #print(sql % sql_arg)
@@ -343,14 +343,14 @@ class WrapDB(object):
 
         # Factor의 갯수가 1~10개로 유동적임
         sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
-        sql = sql + ", window_size, signal_cd, model_profit, bm_profit, term_type, create_tm, update_tm)"
+        sql = sql + ", window_size, signal_cd, score, model_profit, bm_profit, term_type, create_tm, update_tm)"
         sql = sql + " VALUES (%s, %s, %s, %s, %s, %s"
-        sql = sql + ", %s, %s, %s, %s, %s, now(), now())"
-        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
+        sql = sql + ", %s, %s, %s, %s, %s, %s, now(), now())"
+        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, score=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
 
         sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
-        sql_arg += [etc['window_size'], signal_cd, etc['model_profit'], etc['bm_profit'], etc['term_type']]
-        sql_arg += [signal_cd, etc['model_profit'], etc['bm_profit']]
+        sql_arg += [etc['window_size'], signal_cd, etc['score'], etc['model_profit'], etc['bm_profit'], etc['term_type']]
+        sql_arg += [signal_cd, etc['score'], etc['model_profit'], etc['bm_profit']]
         sql_arg = tuple(sql_arg)
 
         #print(sql % sql_arg)
@@ -372,12 +372,12 @@ class WrapDB(object):
     def insert_factor_signal(self, date_info, target_cd, factor_cd, signal_cd, etc):
 
         # Factor의 갯수가 1~10개로 유동적임
-        sql = "INSERT INTO result_factor (start_dt, end_dt, curr_dt, target_cd, factor_cd, window_size, signal_cd, factor_profit, index_profit, term_type, create_tm, update_tm)"
-        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())"
-        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, factor_profit=%s, index_profit=%s, update_tm=now()"
+        sql = "INSERT INTO result_factor (start_dt, end_dt, curr_dt, target_cd, factor_cd, window_size, signal_cd, score, factor_profit, index_profit, term_type, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())"
+        sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, score=%s, factor_profit=%s, index_profit=%s, update_tm=now()"
 
-        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, etc['factor_profit'], etc['index_profit'], etc['term_type']]
-        sql_arg += [signal_cd, etc['factor_profit'], etc['index_profit']]
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, etc['score'], etc['factor_profit'], etc['index_profit'], etc['term_type']]
+        sql_arg += [signal_cd, etc['score'], etc['factor_profit'], etc['index_profit']]
         sql_arg = tuple(sql_arg)
 
         #print(sql % sql_arg)
