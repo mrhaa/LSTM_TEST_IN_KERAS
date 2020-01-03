@@ -349,11 +349,15 @@ class WrapDB(object):
         sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, score=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
 
         sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
-        sql_arg += [etc['window_size'], signal_cd, etc['score'], etc['model_profit'], etc['bm_profit'], etc['term_type']]
-        sql_arg += [signal_cd, etc['score'], etc['model_profit'], etc['bm_profit']]
+        sql_arg += [etc['window_size'], signal_cd, format(etc['score'], ".5f"), format(etc['model_profit'], ".5f"), format(etc['bm_profit'], ".5f"), etc['term_type']]
+        sql_arg += [signal_cd, format(etc['score'], ".5f"), format(etc['model_profit'], ".5f"), format(etc['bm_profit'], ".5f")]
         sql_arg = tuple(sql_arg)
 
-        #print(sql % sql_arg)
+        # Test
+        '''
+        if factor_info['multi_factors_nm'] == 'TOPIX EPS':
+            print(sql % sql_arg)
+        '''
 
         try:
             # 수행
@@ -376,8 +380,8 @@ class WrapDB(object):
         sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())"
         sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, score=%s, factor_profit=%s, index_profit=%s, update_tm=now()"
 
-        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, etc['score'], etc['factor_profit'], etc['index_profit'], etc['term_type']]
-        sql_arg += [signal_cd, etc['score'], etc['factor_profit'], etc['index_profit']]
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), int(factor_cd), etc['window_size'], signal_cd, format(etc['score'], ".5f"), format(etc['factor_profit'], ".5f"), format(etc['index_profit'], ".5f"), etc['term_type']]
+        sql_arg += [signal_cd, format(etc['score'], ".5f"), format(etc['factor_profit'], ".5f"), format(etc['index_profit'], ".5f")]
         sql_arg = tuple(sql_arg)
 
         #print(sql % sql_arg)
@@ -402,7 +406,7 @@ class WrapDB(object):
         sql = "INSERT INTO target_factor_corr (target_nm, factor_nm, end_dt, lag, window_size, norm_yn, value, hit_ratio, create_tm, update_tm)"
         sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE value=%s, hit_ratio=%s, update_tm=now()"
 
-        sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, norm_yn, value, hit_ratio, value, hit_ratio])
+        sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, norm_yn, format(value, ".5f"), format(hit_ratio, ".5f"), format(value, ".5f"), format(hit_ratio, ".5f")])
         #print(sql % sql_arg)
 
         try:
@@ -427,9 +431,9 @@ class WrapDB(object):
 
         dates = target_data.index
         for i, date in enumerate(dates):
-            target_val = target_data[i]
-            factor_val = factor_data[i]
-            sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, str(date), norm_yn, float(target_val), float(factor_val), hit_yn_data[i], float(target_val), float(factor_val), hit_yn_data[i]])
+            target_val = format(float(target_data[i]), ".5f")
+            factor_val = format(float(factor_data[i]), ".5f")
+            sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, str(date), norm_yn, target_val, factor_val, hit_yn_data[i], target_val, factor_val, hit_yn_data[i]])
             #print(sql % sql_arg)
 
             try:
@@ -446,14 +450,21 @@ class WrapDB(object):
 
         return True
 
-    def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size):
+    def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size, multi_factors_nm=None):
 
         sql = "DELETE " \
               "FROM %s " \
               "WHERE target_cd = %s" \
               "  AND start_dt = '%s'" \
               "  AND end_dt = '%s'" \
-              "  AND window_size = %s" % (table_nm, int(target_cd), start_dt, end_dt, window_size)
+              "  AND window_size = %s"
+        if multi_factors_nm == None:
+            sql = sql % (table_nm, int(target_cd), start_dt, end_dt, window_size)
+        else:
+            sql = sql + "AND multi_factors_nm = %s"
+            sql = sql % (table_nm, int(target_cd), start_dt, end_dt, window_size, multi_factors_nm)
+
+        print(sql)
 
         try:
             # 수행

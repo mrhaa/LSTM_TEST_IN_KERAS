@@ -31,21 +31,21 @@ else:
     pickle_dir = '%s/pickle/' % (base_dir)
 
 # Folione 모델 외부(전단계)
-use_datas_pickle = False # 중간 저장된 raw data 사용 여부
+use_datas_pickle = True # 중간 저장된 raw data 사용 여부
 
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
-use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
-use_factor_selection_pickle = False
+use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
+use_correlation_pickle = True # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
+use_factor_selection_pickle = True
 make_folione_signal = True
 
 # 병렬처리 사용여부
 use_parallel_process = True
 
 # Debug 데이터 생성 여부
-save_datas_excel = True
+save_datas_excel = False
 save_correlations_txt = False
 
 # Signal DB 저장 여부
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
     #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2019-11-30']
+    back_test_dates = ['2019-12-31']
 
     # Simulation 기간 타입
     # 1: 장기, 2: 중기, 3: 단기
@@ -73,11 +73,14 @@ if __name__ == '__main__':
 
     for back_test_date in back_test_dates:
         if simulation_term_type == 1:
-            simulation_start_date = '2001-01-01'
+            #simulation_start_date = '2001-01-01'
+            simulation_start_date = '2000-12-31'
         elif  simulation_term_type == 2:
-            simulation_start_date = '2007-01-01'
+            #simulation_start_date = '2007-01-01'
+            simulation_start_date = '2006-12-31'
         elif simulation_term_type == 3:
-            simulation_start_date = '2012-01-01'
+            #simulation_start_date = '2012-01-01'
+            simulation_start_date = '2011-12-31'
         simulation_end_date = back_test_date
 
         # Z-Score 생성의 경우 과거 추가 기간이 필요함.
@@ -87,6 +90,7 @@ if __name__ == '__main__':
         min_max_check_term = 4  # 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
         weight_check_term = 8
         max_lag_term = 3  # max correlation을 판단하기 위한 최대 lag
+        max_signal_factors_num = 10 # factor 예측 모형에서 사용되는 최대 factor 갯수
 
         # DB에서 Raw 데이터를 읽어서 전처리하는 경우
         if use_datas_pickle == False:
@@ -160,6 +164,7 @@ if __name__ == '__main__':
             # 실험적으로 24개월보다 기간이 Window기간이 짧은 경우 Z-Score의 통계적 신뢰성이 떨어진다.
             # Correlation이 불안정함(+, - 반복)
             window_sizes = {"from": 24, "to": raw_data_spare_term}
+            #window_sizes = {"from": 33, "to": raw_data_spare_term}
             profit_calc_start_date = simulation_start_date
             profit_calc_end_date = simulation_end_date
 
@@ -167,7 +172,7 @@ if __name__ == '__main__':
             target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
 
             # Test
-            #target_index_nm_list = ["KOSPI"]
+            #target_index_nm_list = ["S&P500"]
 
 
             max_proces_num = 10
@@ -176,7 +181,7 @@ if __name__ == '__main__':
             for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
                 for target_index_nm in target_index_nm_list:
                     folione = Folione(pivoted_sampled_datas_last_pure_version, window_size, simulation_term_type
-                                      , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, max_lag_term, target_index_nm
+                                      , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, max_lag_term, max_signal_factors_num, target_index_nm
                                       , use_window_size_pickle, use_factor_selection_pickle, use_correlation_pickle
                                       , make_folione_signal
                                       , save_datas_excel, save_correlations_txt, save_signal_process_db, save_signal_last_db, use_parallel_process)

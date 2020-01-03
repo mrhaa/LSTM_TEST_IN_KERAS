@@ -285,7 +285,7 @@ class Preprocess (object):
 class Folione (object):
 
     def __init__(self, raw_data, window_size, simulation_term_type
-                 , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, max_lag_term, target_index_nm
+                 , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, max_lag_term, max_signal_factors_num, target_index_nm
                  , use_window_size_pickle=False, use_factor_selection_pickle=False, use_correlation_pickle=False
                  , make_folione_signal = False
                  , save_datas_excel=False, save_correlations_txt=False, save_signal_process_db=False, save_signal_last_db=True, use_parallel_process=False):
@@ -317,6 +317,7 @@ class Folione (object):
         self.min_max_check_term = copy.deepcopy(min_max_check_term) # Min/Max의 평균 Z-Score를 구하기 위한 기간
         self.weight_check_term = copy.deepcopy(weight_check_term) # 평균 Z-Score의 Momentum 안정성을 판단하기 위한 기간
         self.max_lag_term = copy.deepcopy(max_lag_term) # correlation 계산 시 최대로 줄 수 있는 lag
+        self.max_signal_factors_num = copy.deepcopy(max_signal_factors_num) # factor 예측 모형에서 사용되는 최대 factor 갯수
         
         # 중간 산출물 재사용 여부 확인 Flag
         # 최초 1회는 생성 되어야 하며, data 변경시 재생성 되어야함
@@ -595,8 +596,7 @@ class Folione (object):
         if self.use_parallel_process == False:
             print(idx_str)
 
-        # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
-        max_simulate_factor_num = 10
+        max_signal_factors_num = self.max_signal_factors_num
         index_nm = self.target_index_nm
 
         # 1단계. 예측 index별로 container 생성
@@ -614,8 +614,7 @@ class Folione (object):
             profit_end_date = '9999-99-99'
 
             # 최대 factor 갯수는 10개까지 테스트 & BM보다 좋은 수익률을 내는 factor
-            #if len(simulate_factor_list) <= max_simulate_factor_num and self.model_accumulated_profits[index_nm][profitable_factor] > self.bm_accumulated_profits[index_nm][profitable_factor]:
-            if len(simulate_factor_list) <= max_simulate_factor_num:
+            if len(simulate_factor_list) <= max_signal_factors_num:
                 if len(simulate_factor_list):
                     signal_factors_nm = signal_factors_nm + " & " + profitable_factor
                 else:
@@ -781,8 +780,7 @@ class Folione (object):
         if self.use_parallel_process == False:
             print(idx_str)
 
-        # factor 예측 모형에서 사용되는 최대 factor 갯수는 10
-        max_signal_factors_num = 10
+        max_signal_factors_num = self.max_signal_factors_num
         index_nm = self.target_index_nm
 
 
@@ -803,9 +801,10 @@ class Folione (object):
         model_profitable_factors_sorted = dict(sorted(self.model_accumulated_profits[index_nm].items(), key=operator.itemgetter(1), reverse=True))
 
         # combination factor 갯수
+        accumulated_profits = {}
         for ele_count in range(1, max_signal_factors_num+1):
 
-            combis = list(itertools.combinations(list(model_profitable_factors_sorted)[:10], ele_count))
+            combis = list(itertools.combinations(list(model_profitable_factors_sorted)[:max_signal_factors_num], ele_count))
 
             # 특정 갯수로 만들어질 수 있는 Combination 리스트
             for combi in combis:
@@ -830,6 +829,11 @@ class Folione (object):
                 # 2단계. 예측 index & factor combination별로 container 생성
                 self.model_signals[index_nm][signal_factors_nm] = {}
 
+                # Test
+                '''
+                if signal_factors_nm in ('유로 리보 3M', 'TOPIX EPS', 'SENSEX EPS'):
+                    print('test')
+                '''
                 if self.save_datas_excel:
                     model_signal_data[signal_factors_nm] = 0
                     average_zscore_data[signal_factors_nm] = 0
@@ -944,6 +948,9 @@ class Folione (object):
                                         table_nm = 'result_last'
                                         self.db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
 
+                                        # 결과가 좋지 않은 것들은 삭제하기 위해 최종 수익률을 임시 저장
+                                        accumulated_profits[signal_factors_nm] = float(accumulated_model_profit)
+
                                 # Scenario End Date, Exit
                                 if row_nm == self.profit_calc_end_date:
                                     break
@@ -980,6 +987,20 @@ class Folione (object):
                     # 병렬처리 아닌 경우 로그 프린트
                     if self.use_parallel_process == False:
                         print(signal_str)
+
+        accumulated_profits = dict(sorted(accumulated_profits.items(), key=operator.itemgetter(1), reverse=True))
+        for i, multi_factors_nm in enumerate(accumulated_profits):
+            if i < 30:
+                continue
+
+            if self.save_signal_process_db == True:
+                table_nm = "result"
+                self.db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size, multi_factors_nm)
+
+            if self.save_signal_last_db == True:
+                table_nm = "result_last"
+                self.db.delete_folione_signal(table_nm, factors_nm_cd_map[index_nm], self.profit_calc_start_date, self.profit_calc_end_date, self.window_size, multi_factors_nm)
+
 
         if self.save_datas_excel:
             Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'

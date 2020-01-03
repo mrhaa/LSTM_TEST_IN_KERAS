@@ -117,7 +117,7 @@ LEFT JOIN item AS w
 		  , MAX(model_profit) AS 'model_profit'
 	FROM result_last
 	WHERE start_dt = '2011-12-31'
-	  AND end_dt = '2019-11-30'
+	  AND end_dt = '2019-12-31'
 	GROUP BY start_dt, end_dt, target_cd, term_type
 ) b
 , item c

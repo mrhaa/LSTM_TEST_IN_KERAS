@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS `result` (
   `multi_factors_nm` varchar(500) NOT NULL,
   `window_size` int(2) unsigned NOT NULL,
   `signal_cd` int(1) unsigned NOT NULL,
+  `score` float NOT NULL,
   `term_type` int(1) unsigned NOT NULL,
   `model_profit` float NOT NULL,
   `bm_profit` float NOT NULL,
@@ -84,7 +85,8 @@ CREATE TABLE IF NOT EXISTS `result` (
   PRIMARY KEY (`start_dt`,`end_dt`,`curr_dt`,`target_cd`,`multi_factors_nm`,`window_size`,`term_type`),
   KEY `INDEX1` (`start_dt`,`end_dt`,`target_cd`,`multi_factors_nm`),
   KEY `INDEX2` (`start_dt`,`end_dt`,`target_cd`,`term_type`,`model_profit`),
-  KEY `INDEX3` (`start_dt`,`end_dt`,`target_cd`,`term_type`)
+  KEY `INDEX3` (`start_dt`,`end_dt`,`target_cd`,`term_type`),
+  KEY `INDEX4` (`target_cd`,`start_dt`,`end_dt`,`multi_factors_nm`,`factors_num`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- 내보낼 데이터가 선택되어 있지 않습니다.
@@ -97,6 +99,7 @@ CREATE TABLE IF NOT EXISTS `result_factor` (
   `factor_cd` int(10) unsigned NOT NULL,
   `window_size` int(2) unsigned NOT NULL,
   `signal_cd` int(1) unsigned NOT NULL,
+  `score` float NOT NULL,
   `term_type` int(1) unsigned NOT NULL,
   `factor_profit` float NOT NULL,
   `index_profit` float NOT NULL,
@@ -126,6 +129,7 @@ CREATE TABLE IF NOT EXISTS `result_last` (
   `factor_cd9` int(10) unsigned DEFAULT NULL,
   `window_size` int(2) unsigned NOT NULL,
   `signal_cd` int(1) unsigned NOT NULL,
+  `score` float NOT NULL,
   `term_type` int(1) unsigned NOT NULL,
   `model_profit` float NOT NULL,
   `bm_profit` float NOT NULL,
