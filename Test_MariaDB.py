@@ -455,16 +455,16 @@ class WrapDB(object):
         sql = "DELETE " \
               "FROM %s " \
               "WHERE target_cd = %s" \
-              "  AND start_dt = %s" \
-              "  AND end_dt = %s" \
+              "  AND start_dt = '%s'" \
+              "  AND end_dt = '%s'" \
               "  AND window_size = %s"
         if multi_factors_nm == None:
-            sql = sql % (table_nm, int(target_cd), start_dt, end_dt, window_size)
+            sql = sql % (table_nm, target_cd, start_dt, end_dt, window_size)
         else:
             sql = sql + " AND multi_factors_nm = %s"
-            sql = sql % (table_nm, int(target_cd), start_dt, end_dt, window_size, multi_factors_nm)
+            sql = sql % (table_nm, target_cd, start_dt, end_dt, window_size, multi_factors_nm)
 
-        #print(sql)
+        print(sql)
 
         try:
             # 수행
