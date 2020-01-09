@@ -35,9 +35,11 @@ SELECT b.start_dt
      , b.score
      , b.model_profit
      , b.bm_profit
+     , d.value
   FROM max_profit_profile a
      , result b
      , item c
+     , ivalues d
  WHERE a.start_dt = b.start_dt
    AND a.end_dt = b.end_dt
    AND a.target_cd = b.target_cd
@@ -46,3 +48,6 @@ SELECT b.start_dt
    AND a.multi_factors_nm = b.multi_factors_nm
    AND a.factors_num = b.factors_num
    AND b.target_cd = c.cd
+   AND c.cd = d.item_cd
+   AND b.target_cd = d.item_cd
+   AND b.curr_dt = d.date
