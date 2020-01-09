@@ -792,7 +792,7 @@ class Folione (object):
         if self.save_signal_last_db == True:
             table_nm = "result_last"
             print(self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size)))
-        return 0
+
 
         # 1단계. 예측 index별로 container 생성
         self.model_signals[index_nm] = {}
@@ -990,17 +990,14 @@ class Folione (object):
 
         accumulated_profits = dict(sorted(accumulated_profits.items(), key=operator.itemgetter(1), reverse=True))
         for i, multi_factors_nm in enumerate(accumulated_profits):
-            if i < 30:
-                continue
+            if i >= 30:
+                if self.save_signal_process_db == True:
+                    table_nm = "result"
+                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_nm)
 
-            if self.save_signal_process_db == True:
-                table_nm = "result"
-                self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_nm)
-
-            if self.save_signal_last_db == True:
-                table_nm = "result_last"
-                self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_nm)
-
+                if self.save_signal_last_db == True:
+                    table_nm = "result_last"
+                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_nm)
 
         if self.save_datas_excel:
             Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'

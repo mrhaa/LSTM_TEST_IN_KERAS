@@ -461,10 +461,10 @@ class WrapDB(object):
         if multi_factors_nm == None:
             sql = sql % (table_nm, target_cd, start_dt, end_dt, window_size)
         else:
-            sql = sql + " AND multi_factors_nm = %s"
+            sql = sql + " AND multi_factors_nm = '%s'"
             sql = sql % (table_nm, target_cd, start_dt, end_dt, window_size, multi_factors_nm)
 
-        print(sql)
+        #print(sql)
 
         try:
             # 수행
