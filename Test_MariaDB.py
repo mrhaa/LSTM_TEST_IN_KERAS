@@ -306,17 +306,17 @@ class WrapDB(object):
     def insert_folione_signal(self, table_nm, date_info, target_cd, factor_info, signal_cd, etc):
 
         # Factor의 갯수가 1~10개로 유동적임
-        sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
+        sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_cd, multi_factors_nm" % (table_nm)
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", factor_cd" + str(idx)
         sql = sql + ", window_size, signal_cd, score, model_profit, bm_profit, term_type, create_tm, update_tm)"
-        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s"
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql = sql + ", %s"
         sql = sql + ", %s, %s, %s, %s, %s, %s, now(), now())"
         sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, score=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
 
-        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_cd'], factor_info['multi_factors_nm']]
         for idx, factor_cd in enumerate(factor_info['factors_cd']):
             sql_arg += [factor_info['factors_cd'][idx]]
         sql_arg += [etc['window_size'], signal_cd, etc['score'], etc['model_profit'], etc['bm_profit'], etc['term_type']]
@@ -342,13 +342,13 @@ class WrapDB(object):
     def insert_folione_signal_history(self, table_nm, date_info, target_cd, factor_info, signal_cd, etc):
 
         # Factor의 갯수가 1~10개로 유동적임
-        sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_nm" % (table_nm)
+        sql = "INSERT INTO %s (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_cd, multi_factors_nm" % (table_nm)
         sql = sql + ", window_size, signal_cd, score, model_profit, bm_profit, term_type, create_tm, update_tm)"
-        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s"
         sql = sql + ", %s, %s, %s, %s, %s, %s, now(), now())"
         sql = sql +  " ON DUPLICATE KEY UPDATE signal_cd=%s, score=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
 
-        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_nm']]
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_cd'], factor_info['multi_factors_nm']]
         sql_arg += [etc['window_size'], signal_cd, format(etc['score'], ".5f"), format(etc['model_profit'], ".5f"), format(etc['bm_profit'], ".5f"), etc['term_type']]
         sql_arg += [signal_cd, format(etc['score'], ".5f"), format(etc['model_profit'], ".5f"), format(etc['bm_profit'], ".5f")]
         sql_arg = tuple(sql_arg)
@@ -450,7 +450,7 @@ class WrapDB(object):
 
         return True
 
-    def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size, multi_factors_nm=None):
+    def delete_folione_signal(self, table_nm, target_cd, start_dt, end_dt, window_size, multi_factors_cd=None):
 
         sql = "DELETE " \
               "FROM %s " \
@@ -458,11 +458,11 @@ class WrapDB(object):
               "  AND start_dt = '%s'" \
               "  AND end_dt = '%s'" \
               "  AND window_size = %s"
-        if multi_factors_nm == None:
+        if multi_factors_cd == None:
             sql = sql % (table_nm, target_cd, start_dt, end_dt, window_size)
         else:
-            sql = sql + " AND multi_factors_nm = '%s'"
-            sql = sql % (table_nm, target_cd, start_dt, end_dt, window_size, multi_factors_nm)
+            sql = sql + " AND multi_factors_cd = '%s'"
+            sql = sql % (table_nm, target_cd, start_dt, end_dt, window_size, multi_factors_cd)
 
         #print(sql)
 

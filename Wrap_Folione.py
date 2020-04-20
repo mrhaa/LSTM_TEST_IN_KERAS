@@ -438,6 +438,13 @@ class Folione (object):
                     max_zscore_data[column_nm].values.fill(0)
 
                 try:
+
+                    # 결과 DB 저장시 기존 생성 내용 삭제
+                    if self.save_signal_last_db == True:
+                        table_nm = "result_factor"
+                        print(self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size)))
+
+
                     # Factor별 수익률 계산
                     # 현재, Target Index와 Factor가 동일한 경우는 제외한다.
                     #if column_nm != index_nm:
@@ -492,7 +499,7 @@ class Folione (object):
                                     # 수익률 계산 시작
                                     # factor 검증 start date 이후 부터 처리
                                     # weight_check_term 개수 만큼 average 데이터가 생겨야 노이즈 검증 가능
-                                    if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date\
+                                    if datetime.strptime(row_nm,'%Y-%m-%d').date() >= self.profit_calc_start_date \
                                             and idx >= ((self.min_max_check_term - 1) + max_factor_lag) + self.weight_check_term:
 
                                         # 결과적으로 row_nm이 다음달의 signal을 예측하는 시점.
@@ -809,8 +816,7 @@ class Folione (object):
             # 특정 갯수로 만들어질 수 있는 Combination 리스트
             for combi in combis:
 
-                # 동일 리스트의 경우 순서에 의한 문제 제거(DB Key 에러 문제)
-                combi = sorted(combi)
+                #combi = sorted(combi)
 
                 # 수익률 관련 메타 정보 저장
                 check_first_data = False
@@ -819,12 +825,21 @@ class Folione (object):
 
                 signal_factors_nm = ""
                 signal_factors_list = []
-                for profitable_factor in combi:
-                    if len(signal_factors_list):
-                        signal_factors_nm = signal_factors_nm + " & " + profitable_factor
-                    else:
+                for idx, profitable_factor in enumerate(combi):
+                    if idx == 0:
                         signal_factors_nm = profitable_factor
+                    else:
+                        signal_factors_nm = signal_factors_nm + " & " + profitable_factor
                     signal_factors_list.append(profitable_factor)
+
+                # 동일 리스트의 경우 순서에 의한 문제 제거(DB Key 에러 문제)
+                # key를 cd serialize해서 사용
+                signal_factors_cd = ""
+                for idx, factor_cd in enumerate(sorted([factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list])):
+                    if idx == 0:
+                        signal_factors_cd = str(factor_cd)
+                    else:
+                        signal_factors_cd = signal_factors_cd + "_" + str(factor_cd)
 
                 # 2단계. 예측 index & factor combination별로 container 생성
                 self.model_signals[index_nm][signal_factors_nm] = {}
@@ -934,7 +949,7 @@ class Folione (object):
                                 if self.save_signal_process_db == True or (self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date)):
                                     date_info = {'start_dt': str(self.profit_calc_start_date),'end_dt': str(self.profit_calc_end_date), 'curr_dt': row_nm}
                                     target_cd = factors_nm_cd_map[index_nm]
-                                    factor_info = {'factors_num': len(signal_factors_list),'multi_factors_nm': signal_factors_nm,'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
+                                    factor_info = {'factors_num': len(signal_factors_list), 'multi_factors_cd': signal_factors_cd, 'multi_factors_nm': signal_factors_nm, 'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
                                     signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
                                     etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type, 'score': float(average_array[-1])}
 
