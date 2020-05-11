@@ -2,6 +2,7 @@
 
 import mysql.connector
 from mysql.connector import errorcode
+import numpy as np
 import pandas as pd
 import time
 import datetime
@@ -479,3 +480,55 @@ class WrapDB(object):
             self.conn.rollback()
 
             return False
+
+
+if __name__ == '__main__':
+
+    from datetime import datetime
+    from datetime import timedelta
+
+    db = WrapDB()
+    db.connet(host="127.0.0.1", port=3306, database="WrapDB_1", user="root", password="ryumaria")
+
+    index_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합", "STOXX50", "WTI 유가", "금"]
+    factors_nm_cd_map = db.get_factors_nm_cd()
+    datas = db.get_bloomberg_datas(data_list=[factors_nm_cd_map[nm] for nm in index_list])
+    datas.columns = ['ID', '이름', '날짜', '값']
+
+    # date type의 날짜 속성 추가
+    datas["날짜T"] = datas["날짜"].apply(lambda x: pd.to_datetime(str(x), format="%Y-%m-%d"))
+    # datas.set_index(datas['날짜T'], inplace=True)
+
+    # Sampling 방법에 따른 데이터 누락을 위해 ref_data 생성
+    date_list = datas.resample('D', on="날짜T", convention="end")
+    reference_datas = datas.loc[datas["날짜T"].isin(list(date_list.indices))]
+    pivoted_reference_datas = reference_datas.pivot(index="날짜", columns="ID", values="값")
+
+    for column in pivoted_reference_datas.columns:
+        for idx_row, row in enumerate(pivoted_reference_datas.index):
+            if idx_row != 0:
+                found_date = str(datetime.strptime(row, '%Y-%m-%d').date() - timedelta(days=1))
+                while(last_date != found_date):
+                    try:
+                        sql = "INSERT INTO ivalues (date, item_cd, value, create_tm, update_tm) VALUES ('%s', '%s', %s, now(), now()) ON DUPLICATE KEY UPDATE value=%s, update_tm=now()"
+                        sql_arg = (found_date, column, last_value, last_value)
+                        #print(sql % sql_arg)
+                        db.execute_query(sql, sql_arg)
+
+                    except:
+                        pass
+
+                    found_date = str(datetime.strptime(found_date, '%Y-%m-%d').date() - timedelta(days=1))
+
+                if np.isnan(pivoted_reference_datas[column][row]) == True:
+                    pivoted_reference_datas[column][row] = last_value
+
+                    sql = "INSERT INTO ivalues (date, item_cd, value, create_tm, update_tm) VALUES ('%s', '%s', %s, now(), now()) ON DUPLICATE KEY UPDATE value=%s, update_tm=now()"
+                    sql_arg = (row, column, last_value, last_value)
+                    #print(sql % sql_arg)
+                    db.execute_query(sql, sql_arg)
+
+            last_date = row
+            last_value = pivoted_reference_datas[column][row]
+
+    db.disconnect()
