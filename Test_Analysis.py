@@ -31,14 +31,14 @@ else:
     pickle_dir = '%s/pickle/' % (base_dir)
 
 # Folione 모델 외부(전단계)
-use_datas_pickle = True # 중간 저장된 raw data 사용 여부
+use_datas_pickle = False # 중간 저장된 raw data 사용 여부
 
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
-use_correlation_pickle = True # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
-use_factor_selection_pickle = True
+use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
+use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
+use_factor_selection_pickle = False
 make_folione_signal = True
 
 # 병렬처리 사용여부
@@ -62,13 +62,14 @@ if __name__ == '__main__':
 
     # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
     #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2019-12-31']
+    back_test_dates = ['2020-04-30']
 
     # Simulation 기간 타입
     # 1: 장기, 2: 중기, 3: 단기
     # 장기: 2001-01-01 부터 (IT 버블 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(223 Factors)
     # 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
     # 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
+    # 초단기: 2020-01-01 부터 (코로나 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(Factors)
     simulation_term_type = 3
 
     for back_test_date in back_test_dates:
@@ -81,6 +82,9 @@ if __name__ == '__main__':
         elif simulation_term_type == 3:
             #simulation_start_date = '2012-01-01'
             simulation_start_date = '2011-12-31'
+        elif simulation_term_type == 4:
+            #simulation_start_date = '2012-01-01'
+            simulation_start_date = '2018-12-31'
         simulation_end_date = back_test_date
 
         # Z-Score 생성의 경우 과거 추가 기간이 필요함.
@@ -164,7 +168,7 @@ if __name__ == '__main__':
             # 실험적으로 24개월보다 기간이 Window기간이 짧은 경우 Z-Score의 통계적 신뢰성이 떨어진다.
             # Correlation이 불안정함(+, - 반복)
             window_sizes = {"from": 24, "to": raw_data_spare_term}
-            #window_sizes = {"from": 33, "to": raw_data_spare_term}
+            #window_sizes = {"from": 12, "to": 24} # TEST
             profit_calc_start_date = simulation_start_date
             profit_calc_end_date = simulation_end_date
 
@@ -176,9 +180,10 @@ if __name__ == '__main__':
 
 
             max_proces_num = 10
+            window_step = 3
             jobs = []
             pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
-            for window_size in range(window_sizes["from"], window_sizes["to"] + 1, 3):
+            for window_size in range(window_sizes["from"], window_sizes["to"] + 1, window_step):
                 for target_index_nm in target_index_nm_list:
                     folione = Folione(pivoted_sampled_datas_last_pure_version, window_size, simulation_term_type
                                       , profit_calc_start_date, profit_calc_end_date, min_max_check_term, weight_check_term, max_lag_term, max_signal_factors_num, target_index_nm
