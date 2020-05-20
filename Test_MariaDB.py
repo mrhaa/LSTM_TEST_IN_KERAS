@@ -340,6 +340,43 @@ class WrapDB(object):
 
             return False
 
+    def insert_folione_signal_impact(self, date_info, target_cd, factor_info, signal_cd, etc):
+
+        # Factor의 갯수가 1~10개로 유동적임
+        sql = "INSERT INTO result_factor_impact (start_dt, end_dt, curr_dt, target_cd, factors_num, multi_factors_cd, multi_factors_nm"
+        for idx, factor_cd in enumerate(factor_info['factors_impact']):
+            sql = sql + ", factor_cd" + str(idx) + ", factor_imp" + str(idx)
+        sql = sql + ", model_imp, window_size, term_type, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s"
+        for idx, factor_cd in enumerate(factor_info['factors_impact']):
+            sql = sql + ", %s" + ", %s"
+        sql = sql + ", %s, %s, %s, now(), now())"
+        #sql = sql +  " ON DUPLICATE K
+        # EY UPDATE signal_cd=%s, score=%s, model_profit=%s, bm_profit=%s, update_tm=now()"
+
+        sql_arg = [date_info['start_dt'], date_info['end_dt'], date_info['curr_dt'], int(target_cd), factor_info['factors_num'], factor_info['multi_factors_cd'], factor_info['multi_factors_nm']]
+        for idx, factor_cd in enumerate(factor_info['factors_impact'].keys()):
+            sql_arg += [factor_cd, format(float(factor_info['factors_impact'][factor_cd]), ".5f")]
+        sql_arg += [format(float(factor_info['model_impact']), ".5f"), etc['window_size'], etc['term_type']]
+        #sql_arg += [signal_cd, etc['score'], etc['model_profit'], etc['bm_profit']]
+        sql_arg = tuple(sql_arg)
+
+        #print(sql % sql_arg)
+
+        try:
+            # 수행
+            self.cursor.execute(sql, sql_arg)
+
+            # DB 반영
+            self.conn.commit()
+
+            return True
+
+        except:
+            self.conn.rollback()
+
+            return False
+
     def insert_folione_signal_history(self, table_nm, date_info, target_cd, factor_info, signal_cd, etc):
 
         # Factor의 갯수가 1~10개로 유동적임
@@ -401,13 +438,13 @@ class WrapDB(object):
 
             return False
 
-    def insert_corr(self, target_nm, factor_nm, end_dt, lag, window_size, value, hit_ratio, norm_yn):
+    def insert_corr(self, target_cd, factor_cd, target_nm, factor_nm, end_dt, lag, window_size, value, hit_ratio, norm_yn):
 
         # Factor의 갯수가 1~10개로 유동적임
-        sql = "INSERT INTO target_factor_corr (target_nm, factor_nm, end_dt, lag, window_size, norm_yn, value, hit_ratio, create_tm, update_tm)"
-        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE value=%s, hit_ratio=%s, update_tm=now()"
+        sql = "INSERT INTO target_factor_corr (target_cd, factor_cd, target_nm, factor_nm, end_dt, lag, window_size, norm_yn, value, hit_ratio, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE value=%s, hit_ratio=%s, update_tm=now()"
 
-        sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, norm_yn, format(value, ".5f"), format(hit_ratio, ".5f"), format(value, ".5f"), format(hit_ratio, ".5f")])
+        sql_arg = tuple([int(target_cd), int(factor_cd), target_nm, factor_nm, end_dt, lag, window_size, norm_yn, format(value, ".5f"), format(hit_ratio, ".5f"), format(value, ".5f"), format(hit_ratio, ".5f")])
         #print(sql % sql_arg)
 
         try:
@@ -424,17 +461,17 @@ class WrapDB(object):
 
             return False
 
-    def insert_corr_law_data(self, target_nm, factor_nm, end_dt, lag, window_size, target_data, factor_data, hit_yn_data, norm_yn):
+    def insert_corr_law_data(self, target_cd, factor_cd, target_nm, factor_nm, end_dt, lag, window_size, target_data, factor_data, hit_yn_data, norm_yn):
 
         # Factor의 갯수가 1~10개로 유동적임
-        sql = "INSERT INTO target_factor_corr_law_data (target_nm, factor_nm, end_dt, lag, window_size, hist_dt, norm_yn, target_val, factor_val, hit_yn, create_tm, update_tm)"
-        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE target_val=%s, factor_val=%s, hit_yn=%s, update_tm=now()"
+        sql = "INSERT INTO target_factor_corr_law_data (target_cd, factor_cd, target_nm, factor_nm, end_dt, lag, window_size, hist_dt, norm_yn, target_val, factor_val, hit_yn, create_tm, update_tm)"
+        sql = sql + " VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now()) ON DUPLICATE KEY UPDATE target_val=%s, factor_val=%s, hit_yn=%s, update_tm=now()"
 
         dates = target_data.index
         for i, date in enumerate(dates):
             target_val = format(float(target_data[i]), ".5f")
             factor_val = format(float(factor_data[i]), ".5f")
-            sql_arg = tuple([target_nm, factor_nm, end_dt, lag, window_size, str(date), norm_yn, target_val, factor_val, hit_yn_data[i], target_val, factor_val, hit_yn_data[i]])
+            sql_arg = tuple([int(target_cd), int(factor_cd), target_nm, factor_nm, end_dt, lag, window_size, str(date), norm_yn, target_val, factor_val, hit_yn_data[i], target_val, factor_val, hit_yn_data[i]])
             #print(sql % sql_arg)
 
             try:

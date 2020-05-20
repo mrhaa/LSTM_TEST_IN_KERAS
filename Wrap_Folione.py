@@ -439,12 +439,6 @@ class Folione (object):
 
                 try:
 
-                    # 결과 DB 저장시 기존 생성 내용 삭제
-                    if self.save_signal_last_db == True:
-                        table_nm = "result_factor"
-                        print(self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size)))
-
-
                     # Factor별 수익률 계산
                     # 현재, Target Index와 Factor가 동일한 경우는 제외한다.
                     #if column_nm != index_nm:
@@ -538,6 +532,18 @@ class Folione (object):
                                         # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                         self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
+                                    # factor Signal 모두 저장
+                                    if 0:
+                                        date_info = {'start_dt': str(self.profit_calc_start_date), 'end_dt': str(self.profit_calc_end_date), 'curr_dt': row_nm}
+                                        target_cd = factors_nm_cd_map[index_nm]
+                                        factor_cd = factors_nm_cd_map[column_nm]
+                                        signal_cd = 1 if model_signal == "BUY" else 0
+                                        etc = {'window_size': self.window_size, 'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]),
+                                               'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]),
+                                               'term_type': self.simulation_term_type, 'score': float(average_array[-1])}
+
+                                        self.db.insert_factor_signal(date_info, target_cd, factor_cd, signal_cd,etc)
+
                             except IndexError:
                                 print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
 
@@ -558,7 +564,7 @@ class Folione (object):
                                    'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]), 'term_type': self.simulation_term_type,
                                    'score': float(average_array[-1])}
 
-                            # 마지막 Signal만 저장
+                            # factor Signal 저장
                             if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
                                 self.db.insert_factor_signal(date_info, target_cd, factor_cd, signal_cd, etc)
 
@@ -794,11 +800,11 @@ class Folione (object):
         # 결과 DB 저장시 기존 생성 내용 삭제
         if self.save_signal_process_db == True:
             table_nm = "result"
-            print(self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size)))
+            self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size))
 
         if self.save_signal_last_db == True:
             table_nm = "result_last"
-            print(self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size)))
+            self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size))
 
 
         # 1단계. 예측 index별로 container 생성
@@ -897,7 +903,8 @@ class Folione (object):
                                                             + self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].max()) / 2
                                 # 신규 Folione과 동일한 로직(평균 개념), lag 개념 추가
                                 else:
-                                    average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) * self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].mean()
+                                    average_array[-1] += int(self.corr[index_nm + "_" + factor]['direction']) \
+                                                         * self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].mean()
                             average_array[-1] /= len(signal_factors_list)
 
                             # 수익률 계산 시작
@@ -949,9 +956,11 @@ class Folione (object):
                                 if self.save_signal_process_db == True or (self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date)):
                                     date_info = {'start_dt': str(self.profit_calc_start_date),'end_dt': str(self.profit_calc_end_date), 'curr_dt': row_nm}
                                     target_cd = factors_nm_cd_map[index_nm]
-                                    factor_info = {'factors_num': len(signal_factors_list), 'multi_factors_cd': signal_factors_cd, 'multi_factors_nm': signal_factors_nm, 'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
+                                    factor_info = {'factors_num': len(signal_factors_list), 'multi_factors_cd': signal_factors_cd
+                                        , 'multi_factors_nm': signal_factors_nm, 'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
                                     signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
-                                    etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type, 'score': float(average_array[-1])}
+                                    etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit)
+                                        , 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type, 'score': float(average_array[-1])}
 
                                     # 발생하는 모든 과정의 Signal을 저장
                                     if self.save_signal_process_db == True:
@@ -964,7 +973,38 @@ class Folione (object):
                                         self.db.insert_folione_signal(table_nm, date_info, target_cd, factor_info, signal_cd, etc)
 
                                         # 결과가 좋지 않은 것들은 삭제하기 위해 최종 수익률을 임시 저장
-                                        accumulated_profits[signal_factors_nm] = float(accumulated_model_profit)
+                                        accumulated_profits[signal_factors_cd] = float(accumulated_model_profit)
+
+                                        # factor의 영향도 계산 및 DB저장
+                                        if 1:
+                                            model_score_val_d1 = float(average_array[-1])
+                                            model_score_val_d2 = float(average_array[-2])
+                                            model_score_diff = model_score_val_d1 - model_score_val_d2
+
+                                            factors_impact = {}
+                                            for factor in signal_factors_list:
+                                                factor_lag = int(self.corr[index_nm + "_" + factor]['lag']) if use_factor_lag == True else 1
+
+                                                factor_score_val_d1 = int(self.corr[index_nm + "_" + factor]['direction']) \
+                                                                      * self.zscore_data[factor][idx - factor_lag - (self.min_max_check_term - 1):idx - factor_lag + 1].mean()
+                                                factor_score_val_d2 = int(self.corr[index_nm + "_" + factor]['direction']) \
+                                                                      * self.zscore_data[factor][idx-1 - factor_lag - (self.min_max_check_term - 1):idx-1 - factor_lag + 1].mean()
+
+                                                factor_score_diff = factor_score_val_d1 - factor_score_val_d2
+                                                #factors_impact[factors_nm_cd_map[factor]] = factor_score_diff/len(signal_factors_list) / model_score_diff
+                                                factors_impact[factors_nm_cd_map[factor]] = factor_score_diff/len(signal_factors_list)
+
+                                            factor_info['model_impact'] = model_score_diff
+                                            factor_info['factors_impact'] = factors_impact
+                                            self.db.insert_folione_signal_impact(date_info, target_cd, factor_info, signal_cd, etc)
+
+                                            #print(index_nm + '\t' + signal_factors_nm + '\t' + [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]
+                                            #      + '\t' + factor + '\t' + str(self.profit_calc_end_date) + '\t' + str(self.window_size)
+                                            #      + '\t' + str(factor_lag) + '\t' + str(int(self.corr[index_nm + "_" + factor]['direction']))
+                                            #     + '\t' + str(factors_nm_cd_map[index_nm]) + '\t' + str(factors_nm_cd_map[factor])
+                                            #      + '\t' + str(model_score_val_d1) + '\t' + str(model_score_val_d2)
+                                            #      + '\t' + str(factor_score_val_d1) + '\t' + str(factor_score_val_d2)
+                                            #      + '\t' + str(model_score_diff) + '\t' + str(factor_score_diff))
 
                                 # Scenario End Date, Exit
                                 if row_nm == self.profit_calc_end_date:
@@ -1004,15 +1044,15 @@ class Folione (object):
                         print(signal_str)
 
         accumulated_profits = dict(sorted(accumulated_profits.items(), key=operator.itemgetter(1), reverse=True))
-        for i, multi_factors_nm in enumerate(accumulated_profits):
-            if i >= 30:
+        for i, multi_factors_cd in enumerate(accumulated_profits):
+            if i >= 10:
                 if self.save_signal_process_db == True:
                     table_nm = "result"
-                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_nm)
+                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_cd)
 
                 if self.save_signal_last_db == True:
                     table_nm = "result_last"
-                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_nm)
+                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_cd)
 
         if self.save_datas_excel:
             Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
@@ -1029,6 +1069,8 @@ class Folione (object):
         corr_max = {}
 
         if self.use_correlation_pickle == False:
+
+            factors_nm_cd_map = self.db.get_factors_nm_cd()
 
             if self.save_correlations_txt == True:
                 f = open("%srolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.txt"
@@ -1137,12 +1179,12 @@ class Folione (object):
                                         rolling_correlations[column_nm_1][column_nm_2][lag_term] = hit_ratio
 
                                         # corr, hit ratio 계산값 저장
-                                        self.db.insert_corr(column_nm_1, column_nm_2, str(self.profit_calc_end_date), lag_term, self.window_size
+                                        self.db.insert_corr(factors_nm_cd_map[column_nm_1], factors_nm_cd_map[column_nm_2], column_nm_1, column_nm_2, str(self.profit_calc_end_date), lag_term, self.window_size
                                                        , float(rolling_correlations[column_nm_1][column_nm_2][lag_term]), float(hit_ratio)
                                                        , using_data_type)
 
                                         # corr, hit ratio 계산에 사용된 law 데이터 저장
-                                        self.db.insert_corr_law_data(column_nm_1, column_nm_2, str(self.profit_calc_end_date),
+                                        self.db.insert_corr_law_data(factors_nm_cd_map[column_nm_1], factors_nm_cd_map[column_nm_2], column_nm_1, column_nm_2, str(self.profit_calc_end_date),
                                                                 lag_term, self.window_size , target_data, factor_data, hit_yn_data
                                                                 , using_data_type)
 
