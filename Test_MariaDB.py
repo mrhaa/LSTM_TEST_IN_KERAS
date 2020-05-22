@@ -102,6 +102,7 @@ class WrapDB(object):
         # use_yn이 0인 경우는 데이터가 더이상 블룸버그에서 정상적으로 서비스되지 않는 상태
         # use_yn이 1인 경우는 데이터가 분기에 한번씩 발생하여 Folione에는 적합하지 않은 factor
         # use_yn이 2인 경우는 정상 케이스
+        # use_yn이 3인 경우는 값의 변화가 없어서 정규화 시킬 수 없는 factor
         sql = "SELECT a.cd, a.nm, count(*), min(b.date), max(b.date)" \
               "  FROM item AS a, ivalues AS b" \
               " WHERE a.cd = b.item_cd" \
