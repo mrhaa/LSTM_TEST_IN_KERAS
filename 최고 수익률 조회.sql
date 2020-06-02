@@ -1,33 +1,46 @@
 SELECT a.start_dt AS "시물 시작일"
      , a.end_dt AS "시뮬 기준일"
      , c.nm AS "타겟 INDEX"
-     , a.multi_factors_nm AS "멀티펙터"
      , a.window_size AS "Z-Score 샘플크기"
      , a.signal_cd AS "SIGNAL"
-     , a.model_profit AS "모델 수익률(누적)"
-     , a.bm_profit AS "INDEX 수익률(누적)"
+     , a.score AS "Z-Score"
+     , round(a.model_profit-1,4) AS "모델 수익률(누적)"
+     , round(a.bm_profit-1,4) AS "INDEX 수익률(누적)"
      , a.term_type AS "모델 기간타입"
      , a.factors_num AS "펙터수(최대10)"
      , n.nm AS "1번 펙터"
-     , d.factor_profit - d.index_profit AS "1번 수익률"
+     , format(d.factor_profit - d.index_profit,2) AS "1번 초과수익률"
+     , d.score AS "1번 스코어"
      , o.nm AS "2번 펙터"
-     , e.factor_profit - e.index_profit AS "2번 수익률"
+     , format(e.factor_profit - e.index_profit,2) AS "2번 초과수익률"
+     , e.score AS "2번 스코어"
      , p.nm AS "3번 펙터"
-     , f.factor_profit - f.index_profit AS "3번 수익률"
+     , format(f.factor_profit - f.index_profit,2) AS "3번 초과수익률"
+     , f.score AS "3번 스코어"
      , q.nm AS "4번 펙터"
-     , g.factor_profit - g.index_profit AS "4번 수익률"
+     , format(g.factor_profit - g.index_profit,2) AS "4번 초과수익률"
+     , g.score AS "4번 스코어"
      , r.nm AS "5번 펙터"
-     , h.factor_profit - h.index_profit AS "5번 수익률"
+     , format(h.factor_profit - h.index_profit,2) AS "5번 초과수익률"
+     , h.score AS "5번 스코어"
      , s.nm AS "6번 펙터"
-     , i.factor_profit - i.index_profit AS "6번 수익률"
+     , format(i.factor_profit - i.index_profit,2) AS "6번 초과수익률"
+     , i.score AS "6번 스코어"          
      , t.nm AS "7번 펙터"
-     , j.factor_profit - j.index_profit AS "7번 수익률"
+     , format(j.factor_profit - j.index_profit,2) AS "7번 초과수익률"
+     , j.score AS "7번 스코어"          
      , u.nm AS "8번 펙터"
-     , k.factor_profit - k.index_profit AS "8번 수익률"
+     , format(k.factor_profit - k.index_profit,2) AS "8번 초과수익률"
+     , k.score AS "8번 스코어"          
      , v.nm AS "9번 펙터"
-     , l.factor_profit - l.index_profit AS "9번 수익률"
+     , format(l.factor_profit - l.index_profit,2) AS "9번 초과수익률"
+     , l.score AS "9번 스코어"          
      , w.nm AS "10번 펙터"
-     , m.factor_profit - m.index_profit AS "10번 수익률"
+     , format(m.factor_profit - m.index_profit,2) AS "10번 초과수익률"
+     , m.score AS "10번 스코어"
+     , a.multi_factors_nm AS "멀티펙터"
+     , c.cd AS "타켁 cd"
+     , a.multi_factors_cd AS "멀티cd"
 FROM result_last a
 LEFT JOIN result_factor AS d
 	ON a.factor_cd0 = d.factor_cd
@@ -114,17 +127,21 @@ LEFT JOIN item AS w
 		  , end_dt 				 AS 'end_dt'
 		  , target_cd			 AS 'target_cd'
 		  , term_type			 AS 'term_type'
+--		  , window_size       AS 'window_size'
 		  , MAX(model_profit) AS 'model_profit'
+--		  , MAX(factors_num)  AS 'factors_num'
 	FROM result_last
 	WHERE start_dt = '2011-12-31'
-	  AND end_dt = '2019-12-31'
-	GROUP BY start_dt, end_dt, target_cd, term_type
+	  AND end_dt = '2020-05-31'
+	GROUP BY start_dt, end_dt, target_cd, term_type-- , window_size
 ) b
 , item c
 WHERE a.start_dt = b.start_dt
   AND a.end_dt = b.end_dt
   AND a.target_cd = b.target_cd
+--  AND a.window_size = b.window_size
   AND a.model_profit = b.model_profit
+--  AND a.factors_num = b.factors_num
   AND a.term_type = b.term_type
   AND a.target_cd = c.cd
-
+ORDER BY a.start_dt, a.end_dt, a.target_cd, a.model_profit DESC, a.score DESC, a.factors_num
