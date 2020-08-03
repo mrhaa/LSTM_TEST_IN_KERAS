@@ -1119,8 +1119,9 @@ class Folione (object):
                             
                             # 상관성을 판단하기 위한 데이터량 정의
                             use_all_data = True
+                            start_lag = 0 # 모든 펙터에서 최신 데이터를 사용하면 되는 경우 lag를 줄 필요가 없음
                             data_size_for_corr = len(using_data.index) - self.max_lag_term if use_all_data == True else self.window_size
-                            for lag_term in range(1, self.max_lag_term + 1):
+                            for lag_term in range(start_lag, self.max_lag_term + 1):
 
                                 # 문법상 첫번째 구간(Factor와 Target Index의 lag 없이 동일 시점 적용)은 그냥 처리해야 함
                                 target_data = using_data[column_nm_1][-data_size_for_corr:]

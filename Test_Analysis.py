@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
     #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2020-05-31']
+    back_test_dates = ['2020-07-31']
 
     # Simulation 기간 타입
     # 1: 장기, 2: 중기, 3: 단기
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     # 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
     # 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
     # 초단기: 2020-01-01 부터 (코로나 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(Factors)
-    simulation_term_type = 4
+    simulation_term_type = 3
 
     for back_test_date in back_test_dates:
         if simulation_term_type == 1:
@@ -91,8 +91,8 @@ if __name__ == '__main__':
         # Z-Score의 최대 기간과 동일(월 단위)
         raw_data_spare_term = 36
 
-        min_max_check_term = 4 # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
-        weight_check_term = 8 # 이번 값이 최근 MAX 값인지 확인하는 기간
+        min_max_check_term = 2 # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
+        weight_check_term = 4 # 이번 값이 최근 MAX 값인지 확인하는 기간
         max_lag_term = 3  # max correlation을 판단하기 위한 최대 lag
         max_signal_factors_num = 10 # factor 예측 모형에서 사용되는 최대 factor 갯수
 
@@ -176,7 +176,7 @@ if __name__ == '__main__':
             target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
 
             # Test
-            #target_index_nm_list = ["KOSPI", "상해종합","STOXX50","WTI 유가","금"]
+            #target_index_nm_list = ["KOSPI"]
 
 
             max_proces_num = 10
