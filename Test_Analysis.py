@@ -30,6 +30,7 @@ if platform.system() == 'Windows':
 else:
     pickle_dir = '%s/pickle/' % (base_dir)
 
+
 # Folione 모델 외부(전단계)
 use_datas_pickle = False # 중간 저장된 raw data 사용 여부
 
@@ -58,43 +59,56 @@ do_pca = False
 # 그래프 생성
 do_figure = False
 
+
+
+# test용 파라미터 사용 여부
+is_test = False
+
+# 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
+#back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
+back_test_dates = ['2020-09-30']
+
+# Simulation 기간 타입
+# 1: 장기, 2: 중기, 3: 단기
+# 장기: 2001-01-01 부터 (IT 버블 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(223 Factors)
+# 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
+# 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
+# 초단기: 2020-01-01 부터 (코로나 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(Factors)
+# 최근2년: 직전 2년 전 부터, 데이터는 pivoted_sampled_datas의 기간과 연동(Factors)
+simulation_term_type = 3
+
+# Z-Score 생성의 경우 과거 추가 기간이 필요함.
+# Z-Score의 최대 기간과 동일(월 단위)
+raw_data_spare_term = 36
+
+# max correlation을 판단하기 위한 최대 lag
+max_lag_term = 3
+
+# factor 예측 모형에서 사용되는 최대 factor 갯수
+max_signal_factors_num = 10
+
 if __name__ == '__main__':
-
-    # 과거 상황에서 Simluation을 진행하기 위해 기간을 Array로 받음.
-    #back_test_dates = ['2018-01-31', '2018-02-28', '2018-03-31', '2018-04-30', '2018-05-31', '2018-06-30', '2018-07-31']
-    back_test_dates = ['2020-07-31']
-
-    # Simulation 기간 타입
-    # 1: 장기, 2: 중기, 3: 단기
-    # 장기: 2001-01-01 부터 (IT 버블 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(223 Factors)
-    # 중기: 2007-01-01 부터 (금융위기 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(274 Factors)
-    # 단기: 2012-01-01 부터 (QE 시작 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(315 Factors)
-    # 초단기: 2020-01-01 부터 (코로나 시점), 데이터는 pivoted_sampled_datas의 기간과 연동(Factors)
-    simulation_term_type = 3
 
     for back_test_date in back_test_dates:
         if simulation_term_type == 1:
-            #simulation_start_date = '2001-01-01'
             simulation_start_date = '2000-12-31'
         elif  simulation_term_type == 2:
-            #simulation_start_date = '2007-01-01'
             simulation_start_date = '2006-12-31'
         elif simulation_term_type == 3:
-            #simulation_start_date = '2012-01-01'
             simulation_start_date = '2011-12-31'
         elif simulation_term_type == 4:
-            #simulation_start_date = '2012-01-01'
             simulation_start_date = '2018-12-31'
+        elif simulation_term_type == 5:
+            # 율달인 경우 자동처리되는 로직 없음
+            simulation_start_date = str(int(back_test_date[0:4])-2) + back_test_date[4:]
         simulation_end_date = back_test_date
 
-        # Z-Score 생성의 경우 과거 추가 기간이 필요함.
-        # Z-Score의 최대 기간과 동일(월 단위)
-        raw_data_spare_term = 36
-
-        min_max_check_term = 2 # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
-        weight_check_term = 4 # 이번 값이 최근 MAX 값인지 확인하는 기간
-        max_lag_term = 3  # max correlation을 판단하기 위한 최대 lag
-        max_signal_factors_num = 10 # factor 예측 모형에서 사용되는 최대 factor 갯수
+        if is_test == False:
+            min_max_check_term = 2  # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
+            weight_check_term = 4  # 이번 값이 최근 MAX 값인지 확인하는 기간
+        else:
+            min_max_check_term = 1  # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다. # TEST
+            weight_check_term = 2  # 이번 값이 최근 MAX 값인지 확인하는 기간 # TEST
 
         # DB에서 Raw 데이터를 읽어서 전처리하는 경우
         if use_datas_pickle == False:
@@ -167,18 +181,21 @@ if __name__ == '__main__':
             # Z-Score 생성 기간(18개월 ~ ), 최대 기간은 raw_data_spare_term과 동일
             # 실험적으로 24개월보다 기간이 Window기간이 짧은 경우 Z-Score의 통계적 신뢰성이 떨어진다.
             # Correlation이 불안정함(+, - 반복)
-            window_sizes = {"from": 12, "to": raw_data_spare_term}
-            #window_sizes = {"from": 12, "to": 24} # TEST
+            if is_test == False:
+                window_sizes = {"from": 12, "to": raw_data_spare_term}
+            else:
+                window_sizes = {"from": 27, "to": 27}
+                window_sizes = {"from": 12, "to": raw_data_spare_term}
             profit_calc_start_date = simulation_start_date
             profit_calc_end_date = simulation_end_date
 
+            if is_test == False:
+                target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
+            else:
+                target_index_nm_list = ["KOSPI"]
+                target_index_nm_list = ["KOSPI", "S&P500", "상해종합", "STOXX50"]
 
-            target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
-
-            # Test
-            #target_index_nm_list = ["KOSPI"]
-
-
+            # 병렬처리 시 실행되는 프로세스의 최대 갯수
             max_proces_num = 10
             window_step = 3
             jobs = []
