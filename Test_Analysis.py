@@ -104,8 +104,8 @@ if __name__ == '__main__':
         simulation_end_date = back_test_date
 
         if is_test == False:
-            min_max_check_term = 2  # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
-            weight_check_term = 4  # 이번 값이 최근 MAX 값인지 확인하는 기간
+            min_max_check_term = 1  # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다.
+            weight_check_term = 2  # 이번 값이 최근 MAX 값인지 확인하는 기간
         else:
             min_max_check_term = 1  # 이번값을 그대로 사용하지 않고 특정기간의 평균을 사용, 값이 커질 수록 MA효과(후행성 데이터로 변경)가 강해진다. # TEST
             weight_check_term = 2  # 이번 값이 최근 MAX 값인지 확인하는 기간 # TEST
