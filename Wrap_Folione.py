@@ -399,18 +399,200 @@ class Folione (object):
                     mean_data.drop(index=row, inplace=True)
                     std_data.drop(index=row, inplace=True)
 
-            Wrap_Util.SavePickleFile(file='%spivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                      % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.zscore_data)
+            Wrap_Util.SavePickleFile(file='%spivoted_sampled_datas_zscore_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                                      % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size), obj=self.zscore_data)
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='%ssave_datas_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
-                                    % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
+                Wrap_Util.SaveExcelFiles(file='%ssave_datas_excel_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.xlsx'
+                                    % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size)
                                     , obj_dict={'raw_data': self.raw_data, 'zscore_data': self.zscore_data, 'mean_data': mean_data, 'std_data': std_data})
 
         else:
-            self.zscore_data = Wrap_Util.ReadPickleFile(file='%spivoted_sampled_datas_zscore_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                        % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))
+            self.zscore_data = Wrap_Util.ReadPickleFile(file='%spivoted_sampled_datas_zscore_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                                        % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size))
 
+    def CalcCorrelation(self):
+
+        # 1단계: target index_factor, rolling month 중 최고 값 사용
+        corr_direction = {}
+        corr_lag = {}
+        corr_max = {}
+
+        if self.use_correlation_pickle == False:
+
+            factors_nm_cd_map = self.db.get_factors_nm_cd()
+
+            if self.save_correlations_txt == True:
+                f = open("%srolling_corr_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.txt"
+                         % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size), 'w')
+
+            # 상관관계를 계산할 때 raw data 또는 Z-Score를 사용할 지 선택
+            # Raw Data = 0, Z-Score = 1
+            using_data_type = 1
+            using_data = self.zscore_data if using_data_type else self.raw_data
+
+            rolling_correlations = {}
+
+            # column_nm_1은 Target Index
+            for column_nm_1 in using_data.columns:
+                if column_nm_1 == self.target_index_nm:
+
+                    if self.save_correlations_txt == True:
+                        corr_mtrx_str = "Target Index\t" + str(column_nm_1) + "\n"
+                        # print("Window Size:\t", str(self.window_size), "\t, \t", corr_mtrx_str)
+
+                    rolling_correlations[column_nm_1] = {}
+
+                    # column_nm_2은 Factor
+                    for column_nm_2 in using_data.columns:
+                        if column_nm_2 != column_nm_1:
+
+                            '''
+                            # Test
+                            if column_nm_1 == "금" and column_nm_2 == "USD/AUD":
+                                print("!!!!!!!!!!")
+                            '''
+
+                            if self.save_correlations_txt == True:
+                                corr_mtrx_str = corr_mtrx_str + column_nm_2 + "\t"
+
+                            rolling_correlations[column_nm_1][column_nm_2] = {}
+
+                            # Correlation을 통해 lag와 상관성(정,역) 확인
+                            max_corr = 0.0
+                            max_lag_idx = 0
+
+                            # 상관성에 대한 초기값 설정
+                            corr_direction[column_nm_1 + "_" + column_nm_2] = 1
+                            corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
+                            corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
+
+                            # 상관성을 판단하기 위한 데이터량 정의
+                            use_all_data = True
+                            start_lag = 0  # 모든 펙터에서 최신 데이터를 사용하면 되는 경우 lag를 줄 필요가 없음
+                            data_size_for_corr = len(
+                                using_data.index) - self.max_lag_term if use_all_data == True else self.window_size
+                            for lag_term in range(start_lag, self.max_lag_term + 1):
+
+                                # 문법상 첫번째 구간(Factor와 Target Index의 lag 없이 동일 시점 적용)은 그냥 처리해야 함
+                                target_data = using_data[column_nm_1][-data_size_for_corr:]
+                                if lag_term == 0:
+                                    # pandas의 correation 계산이 안돼 numpy로 변경, 향후 오류 원인 확인 필요
+                                    factor_data = using_data[column_nm_2][-data_size_for_corr:]
+                                else:
+                                    factor_data = using_data[column_nm_2][-(data_size_for_corr + lag_term):-lag_term]
+
+                                rolling_correlations[column_nm_1][column_nm_2][lag_term] = \
+                                numpy.corrcoef(target_data.tolist(), factor_data.tolist())[0][1]
+
+                                # hit ratio 사용 여부
+                                use_hit_ratio = True
+                                if use_hit_ratio == True:
+
+                                    # corr 대신 hit ratio를 이용하여 factor 선택
+                                    if math.isnan(rolling_correlations[column_nm_1][column_nm_2][lag_term]) == False:
+
+                                        dates = target_data.index
+
+                                        hit_ratio = 0.0
+                                        hit_yn_data = [0] * len(dates)
+                                        pos_cnt = 0
+                                        neg_cnt = 0
+                                        unk_cnt = 0
+                                        for i in range(len(dates)):
+                                            # factor_data에 shift를 발생시켰기 때문에 key를 사용하지 않고 index를 사용해야함.
+                                            target_val = target_data[i]
+                                            factor_val = factor_data[i]
+
+                                            # i가 1인 경우부터 선후행관계가 형성됨
+                                            if i > 0:
+                                                # 기준금리처럼 Factor의 값에 변화가 거의 없는 경우
+                                                if factor_val == prev_factor_val:
+                                                    unk_cnt += 1
+                                                    pass
+                                                # Target과 Factor의 방향이 같은 경우
+                                                elif (
+                                                        target_val > prev_target_val and factor_val > prev_factor_val) or (
+                                                        target_val < prev_target_val and factor_val < prev_factor_val):
+                                                    hit_yn_data[i] = 1
+                                                    pos_cnt += 1
+                                                # Target과 Factor의 방향이 다른 경우
+                                                else:
+                                                    hit_yn_data[i] = -1
+                                                    neg_cnt += 1
+
+                                            prev_target_val = target_val
+                                            prev_factor_val = factor_val
+
+                                        total_cnt = pos_cnt + neg_cnt + unk_cnt
+                                        if pos_cnt > neg_cnt:
+                                            hit_ratio = float(pos_cnt) / total_cnt
+                                        elif neg_cnt > pos_cnt:
+                                            hit_ratio = float(-neg_cnt) / total_cnt
+
+                                        rolling_correlations[column_nm_1][column_nm_2][lag_term] = hit_ratio
+
+                                        # corr, hit ratio 계산값 저장
+                                        self.db.insert_corr(factors_nm_cd_map[column_nm_1], factors_nm_cd_map[column_nm_2], column_nm_1, column_nm_2, str(self.profit_calc_start_date),
+                                                            str(self.profit_calc_end_date), self.min_max_check_term, self.weight_check_term, self.window_size, lag_term,
+                                                            float(rolling_correlations[column_nm_1][column_nm_2][lag_term]), float(hit_ratio), using_data_type)
+
+                                        # corr, hit ratio 계산에 사용된 law 데이터 저장
+                                        self.db.insert_corr_law_data(factors_nm_cd_map[column_nm_1], factors_nm_cd_map[column_nm_2], column_nm_1, column_nm_2, str(self.profit_calc_start_date),
+                                                                     str(self.profit_calc_end_date), self.min_max_check_term, self.weight_check_term, self.window_size, lag_term,
+                                                                     target_data, factor_data, hit_yn_data, using_data_type)
+
+                                # Correlation을 통해 lag와 상관성(정,역) 확인
+                                if math.isnan(rolling_correlations[column_nm_1][column_nm_2][lag_term]) == False:
+                                    if abs(rolling_correlations[column_nm_1][column_nm_2][lag_term]) > abs(max_corr):
+                                        max_corr = rolling_correlations[column_nm_1][column_nm_2][lag_term]
+                                        max_lag_idx = lag_term
+
+                                        corr_direction[column_nm_1 + "_" + column_nm_2] = 1 if max_corr > 0.0 else -1
+                                        corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
+                                        corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
+                                        # print(column_nm_1 + "_" + column_nm_2, '\t', max_lag_idx, '\t', max_corr)
+
+                                # 해당경우는 factor selection에 사용되지 않도록 처리되어야함.
+                                # 1년 단위로 값이 변경되는 Factor의 경우 corr가 nan이 나오는 경우 있어 초기화 시킴
+                                elif math.isnan(rolling_correlations[column_nm_1][column_nm_2][lag_term]) == True and (
+                                        max_corr == 0.0 and max_lag_idx == 0):
+                                    corr_direction[column_nm_1 + "_" + column_nm_2] = 1
+                                    corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
+                                    corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
+
+                                if self.save_correlations_txt == True:
+                                    corr_mtrx_str = corr_mtrx_str + str(
+                                        rolling_correlations[column_nm_1][column_nm_2][lag_term]) + "\t"
+
+                            if self.save_correlations_txt == True:
+                                corr_mtrx_str = corr_mtrx_str + "\n"
+
+                    if self.save_correlations_txt == True:
+                        corr_mtrx_str = corr_mtrx_str + "\n"
+                        f.write(corr_mtrx_str)
+                        # print(corr_mtrx_str)
+
+            if self.save_correlations_txt == True:
+                f.close()
+
+            # Corr 정보 생성
+            # 컬럼명은 data의 index를 자동으로 사용함.
+            self.corr = pd.DataFrame(data=[corr_direction, corr_lag, corr_max], index=['direction', 'lag', 'max'])
+
+            Wrap_Util.SavePickleFile(
+                file='%scorr_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                     % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size), obj=self.corr)
+
+            if self.save_datas_excel:
+                Wrap_Util.SaveExcelFiles(
+                    file='%scorr_excel_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.xlsx'
+                         % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size), obj_dict={'corr': self.corr})
+
+        else:
+            self.corr = Wrap_Util.ReadPickleFile(
+                file='%scorr_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                     % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size))
 
     def SelectFactor(self):
 
@@ -532,17 +714,17 @@ class Folione (object):
                                         # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                         self.bm_accumulated_profits[index_nm][column_nm] *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
 
-                                    # factor Signal 모두 저장
+                                    # factor Signal 이력 저장
                                     if 0:
                                         date_info = {'start_dt': str(self.profit_calc_start_date), 'end_dt': str(self.profit_calc_end_date), 'curr_dt': row_nm}
                                         target_cd = factors_nm_cd_map[index_nm]
                                         factor_cd = factors_nm_cd_map[column_nm]
                                         signal_cd = 1 if model_signal == "BUY" else 0
-                                        etc = {'window_size': self.window_size, 'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]),
-                                               'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]),
-                                               'term_type': self.simulation_term_type, 'score': float(average_array[-1])}
+                                        etc = {'min_max_check_term': self.min_max_check_term, 'weight_check_term': self.weight_check_term, 'window_size': self.window_size, 'lag': max_factor_lag,
+                                               'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]), 'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]),
+                                               'score': float(average_array[-1])}
 
-                                        self.db.insert_factor_signal(date_info, target_cd, factor_cd, signal_cd,etc)
+                                        self.db.insert_factor_signal_history(date_info, target_cd, factor_cd, signal_cd,etc)
 
                             except IndexError:
                                 print("IndexError:\t", index_nm, '\t', column_nm, '\t', row_nm)
@@ -556,12 +738,12 @@ class Folione (object):
 
                         # Factor result DB 저장
                         if self.save_signal_last_db == True and row_nm == str(self.profit_calc_end_date):
-                            date_info = {'start_dt': str(self.profit_calc_start_date), 'end_dt': str(self.profit_calc_end_date),'curr_dt': row_nm}
+                            date_info = {'start_dt': str(self.profit_calc_start_date), 'end_dt': str(self.profit_calc_end_date)}
                             target_cd = factors_nm_cd_map[index_nm]
                             factor_cd = factors_nm_cd_map[column_nm]
                             signal_cd = 1 if model_signal == "BUY" else 0
-                            etc = {'window_size': self.window_size, 'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]),
-                                   'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]), 'term_type': self.simulation_term_type,
+                            etc = {'min_max_check_term': self.min_max_check_term, 'weight_check_term': self.weight_check_term, 'window_size': self.window_size, 'lag': max_factor_lag,
+                                   'factor_profit': float(self.model_accumulated_profits[index_nm][column_nm]), 'index_profit': float(self.bm_accumulated_profits[index_nm][column_nm]),
                                    'score': float(average_array[-1])}
 
                             # factor Signal 저장
@@ -571,22 +753,22 @@ class Folione (object):
                 except KeyError:
                     print("KeyError: " + index_nm + "_" + column_nm + " " + str(self.window_size))
 
-            Wrap_Util.SavePickleFile(file='%smodel_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                          % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.model_accumulated_profits)
-            Wrap_Util.SavePickleFile(file='%sbm_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                          % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.bm_accumulated_profits)
+            Wrap_Util.SavePickleFile(file='%smodel_accumulated_profits_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                                          % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size), obj=self.model_accumulated_profits)
+            Wrap_Util.SavePickleFile(file='%sbm_accumulated_profits_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                                          % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size), obj=self.bm_accumulated_profits)
 
             if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='%sfactor_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
-                                          % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
+                Wrap_Util.SaveExcelFiles(file='%sfactor_signal_excel_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.xlsx'
+                                          % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size)
                                          , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'zscore_data': self.zscore_data, 'factor_signal_data': factor_signal_data
                                          , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'corr': self.corr})
 
         else:
-            self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='%smodel_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                                        % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))
-            self.bm_accumulated_profits = Wrap_Util.ReadPickleFile(file='%sbm_accumulated_profits_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                                        % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))
+            self.model_accumulated_profits = Wrap_Util.ReadPickleFile(file='%smodel_accumulated_profits_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                                                        % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size))
+            self.bm_accumulated_profits = Wrap_Util.ReadPickleFile(file='%sbm_accumulated_profits_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.pickle'
+                                                        % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size))
 
 
     def MakeSignal(self):
@@ -796,17 +978,17 @@ class Folione (object):
         max_signal_factors_num = self.max_signal_factors_num
         index_nm = self.target_index_nm
 
-
+        
         # 결과 DB 저장시 기존 생성 내용 삭제
         if self.save_signal_process_db == True:
             table_nm = "result"
-            self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size))
+            self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.min_max_check_term), int(self.weight_check_term), int(self.window_size))
 
         if self.save_signal_last_db == True:
             table_nm = "result_last"
-            self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size))
+            self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.min_max_check_term), int(self.weight_check_term), int(self.window_size))
 
-
+        
         # 1단계. 예측 index별로 container 생성
         self.model_signals[index_nm] = {}
 
@@ -852,9 +1034,11 @@ class Folione (object):
 
                 # Test
                 '''
-                if signal_factors_nm in ('유로 리보 3M', 'TOPIX EPS', 'SENSEX EPS'):
-                    print('test')
+                if signal_factors_cd != '22_31_125_196_277_288':
+                    #print(signal_factors_nm)
+                    continue
                 '''
+
                 if self.save_datas_excel:
                     model_signal_data[signal_factors_nm] = 0
                     average_zscore_data[signal_factors_nm] = 0
@@ -934,6 +1118,7 @@ class Folione (object):
                                         # z-score의 경우 raw data보다 window_size -1 만큼 적음. window_size부터 z-score 생성됨
                                         if self.window_size + idx < len(self.raw_data.index):
                                             accumulated_model_profit *= (self.raw_data[index_nm][next_row_nm] / self.raw_data[index_nm][row_nm])
+                                            #print(index_nm + '\t' + row_nm + '\t' + str(accumulated_bm_profit) + '\t' + str(accumulated_model_profit))
 
                                         # 3단계. 예측 index & factor combination & 시계열별로 signal을 가진다
                                         self.model_signals[index_nm][signal_factors_nm][row_nm] = "BUY"
@@ -959,8 +1144,8 @@ class Folione (object):
                                     factor_info = {'factors_num': len(signal_factors_list), 'multi_factors_cd': signal_factors_cd
                                         , 'multi_factors_nm': signal_factors_nm, 'factors_cd': [factors_nm_cd_map[factor_nm] for factor_nm in signal_factors_list]}
                                     signal_cd = 1 if self.model_signals[index_nm][signal_factors_nm][row_nm] == "BUY" else 0
-                                    etc = {'window_size': self.window_size, 'model_profit': float(accumulated_model_profit)
-                                        , 'bm_profit': float(accumulated_bm_profit), 'term_type': self.simulation_term_type, 'score': float(average_array[-1])}
+                                    etc = {'min_max_check_term': self.min_max_check_term, 'weight_check_term': self.weight_check_term, 'window_size': self.window_size,
+                                           'model_profit': float(accumulated_model_profit), 'bm_profit': float(accumulated_bm_profit), 'score': float(average_array[-1])}
 
                                     # 발생하는 모든 과정의 Signal을 저장
                                     if self.save_signal_process_db == True:
@@ -1048,191 +1233,14 @@ class Folione (object):
             if i >= 10:
                 if self.save_signal_process_db == True:
                     table_nm = "result"
-                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_cd)
+                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.min_max_check_term), int(self.weight_check_term), int(self.window_size), multi_factors_cd)
 
                 if self.save_signal_last_db == True:
                     table_nm = "result_last"
-                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.window_size), multi_factors_cd)
+                    self.db.delete_folione_signal(table_nm, int(factors_nm_cd_map[index_nm]), str(self.profit_calc_start_date), str(self.profit_calc_end_date), int(self.min_max_check_term), int(self.weight_check_term), int(self.window_size), multi_factors_cd)
 
         if self.save_datas_excel:
-            Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
-                                          % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size)
+            Wrap_Util.SaveExcelFiles(file='%smodel_all_combi_signal_excel_target_index_%s_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s_window_size_%s.xlsx'
+                                          % (pickle_dir, self.target_index_nm, self.profit_calc_start_date, self.profit_calc_end_date, self.min_max_check_term, self.weight_check_term, self.window_size)
                                      , obj_dict={'target_index': self.raw_data[index_nm][self.window_size - 1:], 'model_signal_data': model_signal_data
                                      , 'average_zscore_data': average_zscore_data, 'max_zscore_data': max_zscore_data, 'result_data': result_data, 'corr': self.corr, 'zscore_data': self.zscore_data})
-
-
-    def CalcCorrelation(self):
-
-        # 1단계: target index_factor, rolling month 중 최고 값 사용
-        corr_direction = {}
-        corr_lag = {}
-        corr_max = {}
-
-        if self.use_correlation_pickle == False:
-
-            factors_nm_cd_map = self.db.get_factors_nm_cd()
-
-            if self.save_correlations_txt == True:
-                f = open("%srolling_corr_target_index_%s_simulation_term_type_%s_window_size_%s.txt"
-                         % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.window_size), 'w')
-
-            # 상관관계를 계산할 때 raw data 또는 Z-Score를 사용할 지 선택
-            # Raw Data = 0, Z-Score = 1
-            using_data_type = 1
-            using_data = self.zscore_data if using_data_type else self.raw_data
-
-            rolling_correlations = {}
-
-            # column_nm_1은 Target Index
-            for column_nm_1 in using_data.columns:
-                if column_nm_1 == self.target_index_nm:
-
-                    if self.save_correlations_txt == True:
-                        corr_mtrx_str = "Target Index\t" + str(column_nm_1) + "\n"
-                        # print("Window Size:\t", str(self.window_size), "\t, \t", corr_mtrx_str)
-
-                    rolling_correlations[column_nm_1] = {}
-
-                    # column_nm_2은 Factor
-                    for column_nm_2 in using_data.columns:
-                        if column_nm_2 != column_nm_1:
-
-                            '''
-                            # Test
-                            if column_nm_1 == "금" and column_nm_2 == "USD/AUD":
-                                print("!!!!!!!!!!")
-                            '''
-
-                            if self.save_correlations_txt == True:
-                                corr_mtrx_str = corr_mtrx_str + column_nm_2 + "\t"
-
-                            rolling_correlations[column_nm_1][column_nm_2] = {}
-
-                            # Correlation을 통해 lag와 상관성(정,역) 확인
-                            max_corr = 0.0
-                            max_lag_idx = 0
-                            
-                            # 상관성에 대한 초기값 설정
-                            corr_direction[column_nm_1 + "_" + column_nm_2] = 1
-                            corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
-                            corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
-                            
-                            # 상관성을 판단하기 위한 데이터량 정의
-                            use_all_data = True
-                            start_lag = 0 # 모든 펙터에서 최신 데이터를 사용하면 되는 경우 lag를 줄 필요가 없음
-                            data_size_for_corr = len(using_data.index) - self.max_lag_term if use_all_data == True else self.window_size
-                            for lag_term in range(start_lag, self.max_lag_term + 1):
-
-                                # 문법상 첫번째 구간(Factor와 Target Index의 lag 없이 동일 시점 적용)은 그냥 처리해야 함
-                                target_data = using_data[column_nm_1][-data_size_for_corr:]
-                                if lag_term == 0:
-                                    # pandas의 correation 계산이 안돼 numpy로 변경, 향후 오류 원인 확인 필요
-                                    factor_data = using_data[column_nm_2][-data_size_for_corr:]
-                                else:
-                                    factor_data = using_data[column_nm_2][-(data_size_for_corr + lag_term):-lag_term]
-
-                                rolling_correlations[column_nm_1][column_nm_2][lag_term] = numpy.corrcoef(target_data.tolist(),factor_data.tolist())[0][1]
-
-
-                                # hit ratio 사용 여부
-                                use_hit_ratio = True
-                                if use_hit_ratio == True:
-
-                                    # corr 대신 hit ratio를 이용하여 factor 선택
-                                    if math.isnan(rolling_correlations[column_nm_1][column_nm_2][lag_term]) == False:
-
-                                        dates = target_data.index
-
-                                        hit_ratio = 0.0
-                                        hit_yn_data = [0]*len(dates)
-                                        pos_cnt = 0
-                                        neg_cnt = 0
-                                        unk_cnt = 0
-                                        for i in range(len(dates)):
-                                            # factor_data에 shift를 발생시켰기 때문에 key를 사용하지 않고 index를 사용해야함.
-                                            target_val = target_data[i]
-                                            factor_val = factor_data[i]
-                                            
-                                            # i가 1인 경우부터 선후행관계가 형성됨
-                                            if i > 0:
-                                                # 기준금리처럼 Factor의 값에 변화가 거의 없는 경우
-                                                if factor_val == prev_factor_val:
-                                                    unk_cnt += 1
-                                                    pass
-                                                # Target과 Factor의 방향이 같은 경우
-                                                elif (target_val > prev_target_val and factor_val > prev_factor_val) or (target_val < prev_target_val and factor_val < prev_factor_val):
-                                                    hit_yn_data[i] = 1
-                                                    pos_cnt += 1
-                                                # Target과 Factor의 방향이 다른 경우
-                                                else:
-                                                    hit_yn_data[i] = -1
-                                                    neg_cnt += 1
-
-                                            prev_target_val = target_val
-                                            prev_factor_val = factor_val
-
-                                        total_cnt = pos_cnt + neg_cnt + unk_cnt
-                                        if pos_cnt > neg_cnt:
-                                            hit_ratio = float(pos_cnt) / total_cnt
-                                        elif neg_cnt > pos_cnt:
-                                            hit_ratio = float(-neg_cnt) / total_cnt
-
-                                        rolling_correlations[column_nm_1][column_nm_2][lag_term] = hit_ratio
-
-                                        # corr, hit ratio 계산값 저장
-                                        self.db.insert_corr(factors_nm_cd_map[column_nm_1], factors_nm_cd_map[column_nm_2], column_nm_1, column_nm_2, str(self.profit_calc_end_date), lag_term, self.window_size
-                                                       , float(rolling_correlations[column_nm_1][column_nm_2][lag_term]), float(hit_ratio)
-                                                       , using_data_type)
-
-                                        # corr, hit ratio 계산에 사용된 law 데이터 저장
-                                        self.db.insert_corr_law_data(factors_nm_cd_map[column_nm_1], factors_nm_cd_map[column_nm_2], column_nm_1, column_nm_2, str(self.profit_calc_end_date),
-                                                                lag_term, self.window_size , target_data, factor_data, hit_yn_data
-                                                                , using_data_type)
-
-                                # Correlation을 통해 lag와 상관성(정,역) 확인
-                                if math.isnan(rolling_correlations[column_nm_1][column_nm_2][lag_term]) == False:
-                                    if abs(rolling_correlations[column_nm_1][column_nm_2][lag_term]) > abs(max_corr):
-                                        max_corr = rolling_correlations[column_nm_1][column_nm_2][lag_term]
-                                        max_lag_idx = lag_term
-
-                                        corr_direction[column_nm_1 + "_" + column_nm_2] = 1 if max_corr > 0.0 else -1
-                                        corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
-                                        corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
-                                        # print(column_nm_1 + "_" + column_nm_2, '\t', max_lag_idx, '\t', max_corr)
-
-                                # 해당경우는 factor selection에 사용되지 않도록 처리되어야함.
-                                # 1년 단위로 값이 변경되는 Factor의 경우 corr가 nan이 나오는 경우 있어 초기화 시킴
-                                elif math.isnan(rolling_correlations[column_nm_1][column_nm_2][lag_term]) == True and (max_corr == 0.0 and max_lag_idx == 0):
-                                    corr_direction[column_nm_1 + "_" + column_nm_2] = 1
-                                    corr_max[column_nm_1 + "_" + column_nm_2] = max_corr
-                                    corr_lag[column_nm_1 + "_" + column_nm_2] = max_lag_idx
-
-                                if self.save_correlations_txt == True:
-                                    corr_mtrx_str = corr_mtrx_str + str(rolling_correlations[column_nm_1][column_nm_2][lag_term]) + "\t"
-
-                            if self.save_correlations_txt == True:
-                                corr_mtrx_str = corr_mtrx_str + "\n"
-
-                    if self.save_correlations_txt == True:
-                        corr_mtrx_str = corr_mtrx_str + "\n"
-                        f.write(corr_mtrx_str)
-                        #print(corr_mtrx_str)
-
-            if self.save_correlations_txt == True:
-                f.close()
-
-            # Corr 정보 생성
-            # 컬럼명은 data의 index를 자동으로 사용함.
-            self.corr = pd.DataFrame(data=[corr_direction, corr_lag, corr_max], index=['direction','lag','max'])
-
-
-            Wrap_Util.SavePickleFile(file='%scorr_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                          % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size), obj=self.corr)
-
-            if self.save_datas_excel:
-                Wrap_Util.SaveExcelFiles(file='%scorr_excel_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.xlsx'
-                              % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size) , obj_dict={'corr': self.corr})
-
-        else:
-            self.corr = Wrap_Util.ReadPickleFile(file='%scorr_target_index_%s_simulation_term_type_%s_target_date_%s_window_size_%s.pickle'
-                                                        % (pickle_dir, self.target_index_nm, self.simulation_term_type, self.profit_calc_end_date, self.window_size))

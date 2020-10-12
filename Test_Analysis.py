@@ -32,14 +32,14 @@ else:
 
 
 # Folione 모델 외부(전단계)
-use_datas_pickle = False # 중간 저장된 raw data 사용 여부
+use_datas_pickle = True # 중간 저장된 raw data 사용 여부
 
 # Folione 작업
 do_simulation = True
 # Folione 모델 내부
-use_window_size_pickle = False # 중간 저장된 Z-Score data 사용 여부
-use_correlation_pickle = False # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
-use_factor_selection_pickle = False
+use_window_size_pickle = True # 중간 저장된 Z-Score data 사용 여부
+use_correlation_pickle = True # 중간 저장된 Correlation data 사용 여부(Target Index와 Factor간의 관계)
+use_factor_selection_pickle = True
 make_folione_signal = True
 
 # 병렬처리 사용여부
@@ -120,7 +120,7 @@ if __name__ == '__main__':
             preprocess = Preprocess()
 
             # 데이터 Info Read
-            # simulation기간 + z-score를 계산할 수 있은 추가기간이 factor별 최소 필요 데이터 수량
+            # simulation기간 + z-score를 계산할 수 있은 추가기간이 factor별 최h소 필요 데이터 수량
             data_info = db.get_data_info(min_num=int((datetime.strptime(simulation_end_date, '%Y-%m-%d')-datetime.strptime(simulation_start_date, '%Y-%m-%d')).days/30)
                                                  + raw_data_spare_term + min_max_check_term + weight_check_term + max_lag_term)
             preprocess.SetDataInfo(data_info=data_info, data_info_columns=["아이템코드", "아이템명", "개수", "시작일", "마지막일"])
@@ -163,17 +163,17 @@ if __name__ == '__main__':
             filled_pivoted_sampled_datas = preprocess.GetFilledPivotedSampledDatas()
 
 
-            Wrap_Util.SaveExcelFiles(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.xlsx'
-                                          % (pickle_dir, simulation_term_type, back_test_date)
+            Wrap_Util.SaveExcelFiles(file='%spivoted_sampled_datas_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s.xlsx'
+                                          % (pickle_dir, simulation_start_date, simulation_end_date, min_max_check_term, weight_check_term)
                                      , obj_dict={'pivoted_reference_datas': pivoted_reference_datas, 'init_pivoted_sampled_datas': init_pivoted_sampled_datas
                                                 , 'filled_pivoted_sampled_datas': filled_pivoted_sampled_datas, 'pivoted_sampled_datas': pivoted_sampled_datas})
-            Wrap_Util.SaveCSVFiles(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.csv'
-                                        % (pickle_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
-            Wrap_Util.SavePickleFile(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle'
-                                          % (pickle_dir, simulation_term_type, back_test_date), obj=pivoted_sampled_datas)
+            Wrap_Util.SaveCSVFiles(file='%spivoted_sampled_datas_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s.csv'
+                                        % (pickle_dir, simulation_start_date, simulation_end_date, min_max_check_term, weight_check_term), obj=pivoted_sampled_datas)
+            Wrap_Util.SavePickleFile(file='%spivoted_sampled_datas_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s.pickle'
+                                          % (pickle_dir, simulation_start_date, simulation_end_date, min_max_check_term, weight_check_term), obj=pivoted_sampled_datas)
         else:
-            pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='%spivoted_sampled_datas_simulation_term_type_%s_target_date_%s.pickle'
-                                                                  % (pickle_dir, simulation_term_type, back_test_date))
+            pivoted_sampled_datas = Wrap_Util.ReadPickleFile(file='%spivoted_sampled_datas_start_date_%s_end_date_%s_min_max_check_term_%s_weight_check_term_%s.pickle'
+                                                                  % (pickle_dir, simulation_start_date, simulation_end_date, min_max_check_term, weight_check_term))
 
 
         if do_simulation == True:
@@ -190,13 +190,14 @@ if __name__ == '__main__':
             profit_calc_end_date = simulation_end_date
 
             if is_test == False:
-                target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
+                #target_index_nm_list = ["MSCI World", "MSCI EM", "KOSPI", "S&P500", "상해종합","STOXX50","WTI 유가","금"]
+                target_index_nm_list = ["KOSPI", "S&P500", "상해종합", "STOXX50"]
             else:
                 target_index_nm_list = ["KOSPI"]
                 target_index_nm_list = ["KOSPI", "S&P500", "상해종합", "STOXX50"]
 
             # 병렬처리 시 실행되는 프로세스의 최대 갯수
-            max_proces_num = 10
+            max_proces_num = 8
             window_step = 3
             jobs = []
             pivoted_sampled_datas_last_pure_version = copy.deepcopy(pivoted_sampled_datas)
