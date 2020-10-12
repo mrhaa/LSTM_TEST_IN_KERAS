@@ -2,11 +2,12 @@ SELECT a.start_dt AS "시물 시작일"
      , a.end_dt AS "시뮬 기준일"
      , c.nm AS "타겟 INDEX"
      , a.window_size AS "Z-Score 샘플크기"
+     , a.min_max_check_term AS "MA 기간"
+     , a.weight_check_term AS "노이즈 필터 기간"
      , a.signal_cd AS "SIGNAL"
      , a.score AS "Z-Score"
      , round(a.model_profit-1,4) AS "모델 수익률(누적)"
      , round(a.bm_profit-1,4) AS "INDEX 수익률(누적)"
-     , a.term_type AS "모델 기간타입"
      , a.factors_num AS "팩터수(최대10)"
      , n.nm AS "1번 팩터"
      , format(d.factor_profit - d.index_profit,2) AS "1번 초과수익률"
@@ -41,66 +42,87 @@ SELECT a.start_dt AS "시물 시작일"
      , a.multi_factors_nm AS "멀티팩터"
      , c.cd AS "타켁 cd"
      , a.multi_factors_cd AS "멀티cd"
+--     , a.term_type AS "모델 기간타입"
 FROM result_last a
-LEFT JOIN result_factor AS d
+LEFT JOIN result_factor_last AS d
 	ON a.factor_cd0 = d.factor_cd
   AND a.start_dt = d.start_dt
   AND a.end_dt = d.end_dt
   AND a.target_cd = d.target_cd
+  AND a.min_max_check_term = d.min_max_check_term
+  AND a.weight_check_term = d.weight_check_term
   AND a.window_size = d.window_size
-LEFT JOIN result_factor AS e
+LEFT JOIN result_factor_last AS e
   ON a.factor_cd1 = e.factor_cd
  AND a.start_dt = e.start_dt
  AND a.end_dt = e.end_dt
  AND a.target_cd = e.target_cd
+ AND a.min_max_check_term = e.min_max_check_term
+ AND a.weight_check_term = e.weight_check_term
  AND a.window_size = e.window_size
-LEFT JOIN result_factor AS f
+LEFT JOIN result_factor_last AS f
   ON a.factor_cd2 = f.factor_cd
  AND a.start_dt = f.start_dt
  AND a.end_dt = f.end_dt
  AND a.target_cd = f.target_cd
+  AND a.min_max_check_term = f.min_max_check_term
+  AND a.weight_check_term = f.weight_check_term
  AND a.window_size = f.window_size  
-LEFT JOIN result_factor AS g
+LEFT JOIN result_factor_last AS g
   ON a.factor_cd3 = g.factor_cd
  AND a.start_dt = g.start_dt
  AND a.end_dt = g.end_dt
  AND a.target_cd = g.target_cd
+  AND a.min_max_check_term = g.min_max_check_term
+  AND a.weight_check_term = g.weight_check_term
  AND a.window_size = g.window_size
-LEFT JOIN result_factor AS h
+LEFT JOIN result_factor_last AS h
   ON a.factor_cd4 = h.factor_cd
  AND a.start_dt = h.start_dt
  AND a.end_dt = h.end_dt
  AND a.target_cd = h.target_cd
+  AND a.min_max_check_term = h.min_max_check_term
+  AND a.weight_check_term = h.weight_check_term
  AND a.window_size = h.window_size
-LEFT JOIN result_factor AS i
+LEFT JOIN result_factor_last AS i
   ON a.factor_cd5 = i.factor_cd
  AND a.start_dt = i.start_dt
  AND a.end_dt = i.end_dt
  AND a.target_cd = i.target_cd
+  AND a.min_max_check_term = i.min_max_check_term
+  AND a.weight_check_term = i.weight_check_term
  AND a.window_size = i.window_size
-LEFT JOIN result_factor AS j
+LEFT JOIN result_factor_last AS j
   ON a.factor_cd6 = j.factor_cd
  AND a.start_dt = j.start_dt
  AND a.end_dt = j.end_dt
  AND a.target_cd = j.target_cd
+  AND a.min_max_check_term = j.min_max_check_term
+  AND a.weight_check_term = j.weight_check_term
  AND a.window_size = j.window_size
-LEFT JOIN result_factor AS k
+LEFT JOIN result_factor_last AS k
   ON a.factor_cd7 = k.factor_cd
  AND a.start_dt = k.start_dt
  AND a.end_dt = k.end_dt
  AND a.target_cd = k.target_cd
+  AND a.min_max_check_term = k.min_max_check_term
+  AND a.weight_check_term = k.weight_check_term
  AND a.window_size = k.window_size
-LEFT JOIN result_factor AS l
+LEFT JOIN result_factor_last AS l
   ON a.factor_cd8 = l.factor_cd
  AND a.start_dt = l.start_dt
  AND a.end_dt = l.end_dt
  AND a.target_cd = l.target_cd
+  AND a.min_max_check_term = l.min_max_check_term
+  AND a.weight_check_term = l.weight_check_term
  AND a.window_size = l.window_size
-LEFT JOIN result_factor AS m
+LEFT JOIN result_factor_last AS m
   ON a.factor_cd9 = m.factor_cd
  AND a.start_dt = m.start_dt
  AND a.end_dt = m.end_dt
  AND a.target_cd = m.target_cd
+  AND a.min_max_check_term = m.min_max_check_term
+  AND a.weight_check_term = m.weight_check_term
  AND a.window_size = m.window_size
 LEFT JOIN item AS n
     ON a.factor_cd0 = n.cd
@@ -126,22 +148,27 @@ LEFT JOIN item AS w
 	SELECT start_dt 			 AS 'start_dt'
 		  , end_dt 				 AS 'end_dt'
 		  , target_cd			 AS 'target_cd'
-		  , term_type			 AS 'term_type'
+		  , min_max_check_term AS 'min_max_check_term'
+		  , weight_check_term AS 'weight_check_term'
 --		  , window_size       AS 'window_size'
 		  , MAX(model_profit) AS 'model_profit'
 --		  , MAX(factors_num)  AS 'factors_num'
 	FROM result_last
 	WHERE start_dt = '2011-12-31'
-	  AND end_dt = '2020-05-31'
-	GROUP BY start_dt, end_dt, target_cd, term_type-- , window_size
+--	WHERE start_dt = '2018-12-31'
+--	WHERE start_dt = '2018-08-31'
+	  AND end_dt = '2020-09-30'
+	GROUP BY start_dt, end_dt, target_cd, min_max_check_term, weight_check_term-- , window_size
 ) b
 , item c
 WHERE a.start_dt = b.start_dt
   AND a.end_dt = b.end_dt
   AND a.target_cd = b.target_cd
---  AND a.window_size = b.window_size
+  AND a.min_max_check_term = b.min_max_check_term
+  AND a.weight_check_term = b.weight_check_term
   AND a.model_profit = b.model_profit
+--  AND a.window_size = b.window_size
 --  AND a.factors_num = b.factors_num
-  AND a.term_type = b.term_type
+--  AND a.term_type = b.term_type
   AND a.target_cd = c.cd
-ORDER BY a.start_dt, a.end_dt, a.target_cd, a.model_profit DESC, a.score DESC, a.factors_num
+ORDER BY a.min_max_check_term, a.weight_check_term, a.start_dt, a.end_dt, a.target_cd, a.model_profit DESC, a.score DESC, a.factors_num

@@ -1,7 +1,9 @@
-SELECT c.start_dt AS "시물 시작일"
-	  , c.end_dt AS "시물 기준일"
+SELECT DISTINCT a.start_dt AS "시물 시작일"
+	  , a.end_dt AS "시물 기준일"
 	  , d.nm AS "타겟 INDEX"
 	  , c.window_size AS "Z-Score 샘플크기"
+     , a.min_max_check_term AS "MA 기간"
+     , a.weight_check_term AS "노이즈 필터 기간"
 	  , c.factors_num AS "팩터수(최대10)"
 	  , c.model_imp AS "Z-Score Growth"
 	  , n.nm AS "1번 팩터"
@@ -52,27 +54,31 @@ LEFT JOIN item AS w
 	SELECT start_dt 			 AS 'start_dt'
 		  , end_dt 				 AS 'end_dt'
 		  , target_cd			 AS 'target_cd'
-		  , term_type			 AS 'term_type'
---		  , window_size       AS 'window_size'
+		  , min_max_check_term AS 'min_max_check_term'
+		  , weight_check_term AS 'weight_check_term'
 		  , MAX(model_profit) AS 'model_profit'
 --		  , MAX(factors_num)  AS 'factors_num'
 	FROM result_last
 	WHERE start_dt = '2011-12-31'
-	  AND end_dt = '2020-05-31'
-	GROUP BY start_dt, end_dt, target_cd, term_type-- , window_size
+--	WHERE start_dt = '2018-08-31'
+	  AND end_dt = '2020-09-30'
+	GROUP BY start_dt, end_dt, target_cd, min_max_check_term, weight_check_term
 ) b
-, result_factor_impact c
+ , result_factor_impact c
 , item d
-WHERE a.target_cd = b.target_cd
-  AND a.start_dt = b.start_dt
+WHERE a.start_dt = b.start_dt
   AND a.end_dt = b.end_dt
-  AND a.term_type = b.term_type
+  AND a.target_cd = b.target_cd
+  AND a.min_max_check_term = b.min_max_check_term
+  AND a.weight_check_term = b.weight_check_term  
   AND a.model_profit = b.model_profit
-  AND a.target_cd = c.target_cd
   AND a.start_dt = c.start_dt
   AND a.end_dt = c.end_dt
-  AND a.term_type = c.term_type
+  AND a.target_cd = c.target_cd
+  AND a.min_max_check_term = c.min_max_check_term
+  AND a.weight_check_term = c.weight_check_term  
   AND a.multi_factors_cd = c.multi_factors_cd
   AND a.factors_num = c.factors_num
   AND a.window_size = c.window_size
   AND a.target_cd = d.cd
+ORDER BY a.min_max_check_term, a.weight_check_term, a.start_dt, a.end_dt, a.target_cd  
