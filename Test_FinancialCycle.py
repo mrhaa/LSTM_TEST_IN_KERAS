@@ -121,15 +121,15 @@ if 1:
 
                 prve_date_cd = date_cd
 
-            result_status_up[macro_nm][index_nm] = right_status_up_cnt
-            result_status_down[macro_nm][index_nm] = right_status_down_cnt
-            result_momentum_up[macro_nm][index_nm] = right_momentum_up_cnt
-            result_momentum_down[macro_nm][index_nm] = right_momentum_down_cnt
-            result_status_momentum_up[macro_nm][index_nm] = right_status_momentum_up_cnt
-            result_status_momentum_down[macro_nm][index_nm] = right_status_momentum_down_cnt
-            result_status[macro_nm][index_nm] = right_status_up_cnt + right_status_down_cnt
-            result_momentum[macro_nm][index_nm] = right_momentum_up_cnt + right_momentum_down_cnt
-            result_status_momentum[macro_nm][index_nm] = right_status_momentum_up_cnt + right_status_momentum_down_cnt
+            result_status_up[macro_nm][index_nm] = right_status_up_cnt/len(pivoted_index_status_df.index)
+            result_status_down[macro_nm][index_nm] = right_status_down_cnt/len(pivoted_index_status_df.index)
+            result_momentum_up[macro_nm][index_nm] = right_momentum_up_cnt/len(pivoted_index_status_df.index)
+            result_momentum_down[macro_nm][index_nm] = right_momentum_down_cnt/len(pivoted_index_status_df.index)
+            result_status_momentum_up[macro_nm][index_nm] = right_status_momentum_up_cnt/len(pivoted_index_status_df.index)
+            result_status_momentum_down[macro_nm][index_nm] = right_status_momentum_down_cnt/len(pivoted_index_status_df.index)
+            result_status[macro_nm][index_nm] = (right_status_up_cnt + right_status_down_cnt)/len(pivoted_index_status_df.index)
+            result_momentum[macro_nm][index_nm] = (right_momentum_up_cnt + right_momentum_down_cnt)/len(pivoted_index_status_df.index)
+            result_status_momentum[macro_nm][index_nm] = (right_status_momentum_up_cnt + right_status_momentum_down_cnt)/len(pivoted_index_status_df.index)
 
     if LOG:
         if platform.system() == 'Windows':
@@ -173,11 +173,9 @@ if 1:
             macro_ctry = macro_master_df['ctry'][macro_cd]
             macro_nm = macro_master_df['nm'][macro_cd]
 
-            plot_df = copy.deepcopy(pivoted_index_value_df)
-            plot_df[macro_nm] = pivoted_macro_momentum_df[macro_cd]
-
-            #panel.draw_multi(plot_df, title=macro_ctry+'_'+macro_nm, subplot_nm=macro_nm, figsize=(20,10), figshape=(2, math.ceil(len(pivoted_index_value_df.columns)/2)))
-            panel.draw_multi2(pivoted_index_value_df, result_momentum_up_right[macro_nm], result_momentum_down_right[macro_nm], title=macro_ctry+'_'+macro_nm, subplot_nm=macro_nm, figsize=(20, 10), figshape=(2, math.ceil(len(pivoted_index_value_df.columns) / 2)), img_save='y')
+            panel.draw_multi_graph_with_matching_analysis(data=pivoted_index_value_df, analysis=(result_momentum_up_right[macro_nm], result_momentum_down_right[macro_nm])
+                              , anal_value=result_momentum[macro_nm], title=macro_ctry+'_'+macro_nm, figsize=(20, 10), figshape=(2, math.ceil(len(pivoted_index_value_df.columns)/2))
+                              , img_save='n')
 
 db.disconnect()
 

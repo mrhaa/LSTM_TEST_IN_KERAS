@@ -9,7 +9,10 @@ import numpy as np
 
 if platform.system() == 'Windows':
     font_path = 'C:/Windows/Boot/Fonts/malgun_boot.ttf'
-    fontprop = fm.FontProperties(fname=font_path, size=18)
+    fontprop = fm.FontProperties(fname=font_path, size=15)
+else:
+    path = '/Library/Fonts/Arial Unicode.ttf'
+    fontprop = fm.FontProperties(fname=path, size=15)
 
 def Figure_2D(data_frame, title='2 component', input_name = None, output_name = None, target_name = None, target_color = None):
 
@@ -75,62 +78,37 @@ class Figure(object):
         self.data = None
         self.figsize = None
 
-    def draw_multi(self, data=None, title="", subplot_nm="", figsize=(10, 10), figshape=(1,1)):
-        self.data = data
-        if self.data is None:
+    def draw_multi_graph_with_matching_analysis(self, data=None, analysis=None, anal_value=None, title="", figsize=(10, 10), figshape=(1,1), img_save='n'):
+
+        color_list = ('r', 'g', 'b')
+
+        if data is None or analysis == None:
             return False
 
-        self.figsize = figsize
+        panel, data_subs = plt.subplots(nrows=figshape[0], ncols=figshape[1], figsize=figsize, squeeze=False, constrained_layout=True)
+        #panel.subplots_adjust(top=0.9, wspace=0.3)
+        #panel.tight_layout()
 
-        fig, ax = plt.subplots(nrows=figshape[0], ncols=figshape[1])
-        bx = np.ndarray(shape=(figshape[0],figshape[1]), dtype=object)
+        plt.suptitle(title, fontproperties=fontprop)
+
+        analysis_subs = [np.ndarray(shape=(figshape[0],figshape[1]), dtype=object) for anal in analysis]
         for row_idx in range(figshape[0]):
             for column_idx in range(figshape[1]):
 
-                idx = row_idx*figshape[0]+column_idx
-                if idx >= len(data.columns)-1:
+                idx = row_idx*figshape[1]+column_idx
+                if idx >= len(data.columns):
                     continue
 
-                ax[row_idx][column_idx].set_title(data.columns[idx], fontproperties=fontprop)
-                bx[row_idx][column_idx] = ax[row_idx][column_idx].twinx()
+                data_subs[row_idx][column_idx].set_title(data.columns[idx]+'('+str(round(anal_value[idx]*100, 2))+'%)', fontproperties=fontprop)
+                for analysis_sub in analysis_subs:
+                    analysis_sub[row_idx][column_idx] = data_subs[row_idx][column_idx].twinx()
 
-                self.data[data.columns[idx]].plot(ax=ax[row_idx][column_idx], figsize=self.figsize, color='k')
-                self.data[subplot_nm].plot(ax=bx[row_idx][column_idx], figsize=self.figsize, kind='bar', position=0, width=1, color='r', alpha=0.3)
+                data[data.columns[idx]].plot(ax=data_subs[row_idx][column_idx], color='k')
+                for color_idx, (anal, alaysis_sub) in enumerate(zip(analysis, analysis_subs)):
+                    anal[data.columns[idx]].plot(ax=alaysis_sub[row_idx][column_idx], kind='bar', position=0, width=1, color=color_list[color_idx%3], alpha=0.3)
 
-
-        plt.suptitle(subplot_nm, fontproperties=fontprop)
-        fig.tight_layout()
-        plt.show()
-
-    def draw_multi2(self, data=None, check_data1=None, check_data2=None, title="", subplot_nm="", figsize=(10, 10), figshape=(1,1), img_save='n'):
-        self.data = data
-        if self.data is None:
-            return False
-
-        self.figsize = figsize
-
-        fig, ax = plt.subplots(nrows=figshape[0], ncols=figshape[1])
-        bx = np.ndarray(shape=(figshape[0],figshape[1]), dtype=object)
-        cx = np.ndarray(shape=(figshape[0], figshape[1]), dtype=object)
-        for row_idx in range(figshape[0]):
-            for column_idx in range(figshape[1]):
-
-                idx = row_idx*figshape[0]+column_idx
-                if idx >= len(data.columns)-1:
-                    continue
-
-                ax[row_idx][column_idx].set_title(data.columns[idx], fontproperties=fontprop)
-                bx[row_idx][column_idx] = ax[row_idx][column_idx].twinx()
-                cx[row_idx][column_idx] = ax[row_idx][column_idx].twinx()
-
-                self.data[data.columns[idx]].plot(ax=ax[row_idx][column_idx], figsize=self.figsize, color='k')
-                check_data1[data.columns[idx]].plot(ax=bx[row_idx][column_idx], figsize=self.figsize, kind='bar', position=0, width=1, color='r', alpha=0.3)
-                check_data2[data.columns[idx]].plot(ax=cx[row_idx][column_idx], figsize=self.figsize, kind='bar', position=0, width=1, color='b', alpha=0.3)
-
-        plt.suptitle(subplot_nm, fontproperties=fontprop)
-        fig.tight_layout()
         if img_save == 'y':
-            plt.savefig('%s_momentum_triger.png' % (subplot_nm))
+            plt.savefig('%s_momentum_triger.png' % (title))
         else:
             plt.show()
 
