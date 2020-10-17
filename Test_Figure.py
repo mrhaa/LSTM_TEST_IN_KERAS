@@ -75,8 +75,7 @@ def Figure_3D(data_frame, title='3 component', input_name = None, output_name = 
 class Figure(object):
 
     def __init__(self):
-        self.data = None
-        self.figsize = None
+        print("### Make Panel ###")
 
     def draw_multi_graph_with_matching_analysis(self, data=None, analysis=None, anal_value=None, title="", figsize=(10, 10), figshape=(1,1), img_save='n'):
 
@@ -99,7 +98,10 @@ class Figure(object):
                 if idx >= len(data.columns):
                     continue
 
-                data_subs[row_idx][column_idx].set_title(data.columns[idx]+'('+str(round(anal_value[idx]*100, 2))+'%)', fontproperties=fontprop)
+                data_subs[row_idx][column_idx].set_title(data.columns[idx], fontproperties=fontprop)
+                if anal_value != None:
+                    data_subs[row_idx][column_idx].set_title(data.columns[idx]+'('+str(round(anal_value[idx]*100, 2))+'%)', fontproperties=fontprop)
+
                 for analysis_sub in analysis_subs:
                     analysis_sub[row_idx][column_idx] = data_subs[row_idx][column_idx].twinx()
 
@@ -114,11 +116,8 @@ class Figure(object):
 
 
     def draw(self, data=None, title="", subplots=None, figsize=(10,10)):
-        self.data = data
-        if self.data is None:
+        if data is None:
             return False
-
-        self.figsize = figsize
 
         ax = {}
         fig, ax['base'] = plt.subplots(nrows=2, ncols=1)
@@ -135,14 +134,14 @@ class Figure(object):
                 fig.subplots_adjust(right=0.75 * idx)
 
         #self.data.plot(figsize=(20, 10))
-        for cd in self.data:
+        for cd in data:
             if cd not in subplots:
-                self.data[cd].plot(ax=ax['base'], figsize=self.figsize, kind='bar')
+                data[cd].plot(ax=ax['base'], figsize=figsize, kind='bar')
             else:
                 for subplot_nm in subplots:
                     if cd == subplot_nm:
                         r = lambda: random.randint(0, 255)
-                        self.data[cd].plot(ax=ax[cd], figsize=self.figsize, style=('#%02X%02X%02X' % (r(), r(), r())))
+                        data[cd].plot(ax=ax[cd], figsize=figsize, style=('#%02X%02X%02X' % (r(), r(), r())))
 
         plt.title(title, fontproperties=fontprop)
         plt.show()
