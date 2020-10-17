@@ -283,20 +283,21 @@ class FinancialCycle(object):
 
     # 현재는 평균만 계산할 수 있음
     def set_matching_momentum_statistic(self, type='mean', weights_info=None, threshold=0.0):
-
-        key = type if weights_info is None else type+str(weights_info[0])+str(weights_info[1])
-        weights = np.repeat(1 / self.macro_cnt, self.macro_cnt) if weights_info is None else weights_info[1]
+        key = type if weights_info is None else type+'_'+weights_info[0]
+        weights = np.repeat(1/self.macro_cnt, self.macro_cnt)
 
         self.result_momentum_up_right[key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
         self.result_momentum_down_right[key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
 
         for index_cd in self.index_list:
+            weights = weights_info[1][index_cd] if weights_info is not None else weights
             for date_cd in self.index_timeseries:
                 momentum_up_right = np.repeat(0, self.macro_cnt)
                 momentum_down_right = np.repeat(0, self.macro_cnt)
                 for idx, macro_cd in enumerate(self.macro_list):
                     momentum_up_right[idx] = self.result_momentum_up_right[macro_cd][index_cd][date_cd] if math.isnan(self.result_momentum_up_right[macro_cd][index_cd][date_cd]) == False else 0
                     momentum_down_right[idx] = self.result_momentum_down_right[macro_cd][index_cd][date_cd] if math.isnan(self.result_momentum_down_right[macro_cd][index_cd][date_cd]) == False else 0
+
                 self.result_momentum_up_right[key][index_cd][date_cd] = round(sum(momentum_up_right*weights), 2) if sum(momentum_up_right*weights) > threshold else 0
                 self.result_momentum_down_right[key][index_cd][date_cd] = round(sum(momentum_down_right*weights), 2) if sum(momentum_down_right*weights) > threshold else 0
 
@@ -335,7 +336,7 @@ class FinancialCycle(object):
                     print('############################################')
                 panel.draw(plot_df, title=macro_ctry+'_'+macro_nm, subplots=[index_cd], figsize=(10,5))
 
-    def do_figure(self, weights_list=None, img_save='n'):
+    def do_figure(self, weights_info=None, img_save='n'):
         panel = Figure()
         panel_size = (20, 10)
         sub_plot_row = 3
@@ -347,9 +348,9 @@ class FinancialCycle(object):
                           , anal_value=None, title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
                           , img_save=img_save)
 
-        if weights_list is not None:
-            for weights_cd in weights_list:
-                macro_nm = 'mean'+str(weights_cd)+str(weights_list[weights_cd])
+        if weights_info is not None:
+            for weights_cd in weights_info[1]:
+                macro_nm = 'mean'+'_'+weights_info[0]
                 macro_cd = macro_nm
                 panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.result_momentum_up_right[macro_cd], self.result_momentum_down_right[macro_cd])
                               , anal_value=None, title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
@@ -389,11 +390,10 @@ if __name__ == '__main__':
     index_list = copy.deepcopy(ele.index_list)
     timeseries = copy.deepcopy(ele.index_timeseries)
     weights_list = maximize_profit(right_up_case, right_down_case, macro_list, index_list, timeseries, lb=0.1, ub=0.9)
-    for weights_cd in weights_list:
-        ele.set_matching_momentum_statistic(type='mean', weights_info=(weights_cd, weights_list[weights_cd]), threshold=0.5)
+    ele.set_matching_momentum_statistic(type='mean', weights_info=('optimized', weights_list), threshold=0.5)
 
     ele.save_log()
-    ele.do_figure(weights_list=weights_list, img_save='y')
+    ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
 
     db.disconnect()
 
