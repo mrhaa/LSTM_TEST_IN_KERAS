@@ -349,12 +349,11 @@ class FinancialCycle(object):
                           , img_save=img_save)
 
         if weights_info is not None:
-            for weights_cd in weights_info[1]:
-                macro_nm = 'mean'+'_'+weights_info[0]
-                macro_cd = macro_nm
-                panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.result_momentum_up_right[macro_cd], self.result_momentum_down_right[macro_cd])
-                              , anal_value=None, title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
-                              , img_save=img_save)
+            macro_nm = 'mean'+'_'+weights_info[0]
+            macro_cd = macro_nm
+            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.result_momentum_up_right[macro_cd], self.result_momentum_down_right[macro_cd])
+                          , anal_value=None, title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
+                          , img_save=img_save)
 
         for macro_cd in self.macro_list:
             macro_ctry = self.macro_master_df['ctry'][macro_cd]
@@ -392,8 +391,8 @@ if __name__ == '__main__':
     weights_list = maximize_profit(right_up_case, right_down_case, macro_list, index_list, timeseries, lb=0.1, ub=0.9)
     ele.set_matching_momentum_statistic(type='mean', weights_info=('optimized', weights_list), threshold=0.5)
 
-    ele.save_log()
     ele.do_figure(weights_info=('optimized', weights_list), img_save='n')
+    ele.save_log()
 
     db.disconnect()
 
