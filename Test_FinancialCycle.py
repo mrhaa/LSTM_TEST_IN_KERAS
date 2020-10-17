@@ -393,7 +393,7 @@ if __name__ == '__main__':
     ele.set_matching_momentum_statistic(type='mean', weights_info=('optimized', weights_list), threshold=0.5)
 
     ele.save_log()
-    ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
+    ele.do_figure(weights_info=('optimized', weights_list), img_save='n')
 
     db.disconnect()
 
