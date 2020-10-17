@@ -81,7 +81,7 @@ class Figure(object):
 
         color_list = ('r', 'g', 'b')
 
-        if data is None or analysis == None:
+        if data is None or analysis is None:
             return False
 
         panel, data_subs = plt.subplots(nrows=figshape[0], ncols=figshape[1], figsize=figsize, squeeze=False, constrained_layout=True)
@@ -99,7 +99,7 @@ class Figure(object):
                     continue
 
                 data_subs[row_idx][column_idx].set_title(data.columns[idx], fontproperties=fontprop)
-                if anal_value != None:
+                if anal_value is not None:
                     data_subs[row_idx][column_idx].set_title(data.columns[idx]+'('+str(round(anal_value[idx]*100, 2))+'%)', fontproperties=fontprop)
 
                 for analysis_sub in analysis_subs:
