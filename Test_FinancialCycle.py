@@ -402,6 +402,7 @@ if __name__ == '__main__':
     weights_list = maximize_profit(right_up_case, right_down_case, macro_list, index_list, timeseries, lb=0.0, ub=1.0)
     ele.set_matching_momentum_statistic(type='mean', weights_info=('optimized', weights_list), threshold=0.0)
     print("################## optimized weights ##################")
+    print(list(ele.macro_master_df['nm']))
     for weights_cd in weights_list:
         print(weights_cd + ': ' + str(weights_list[weights_cd]))
     print("################## forecast index's direction ##################")
