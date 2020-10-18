@@ -20,7 +20,7 @@ PRINT_SC = False
 base_dir = (os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 
-def maximize_profit(right_up_case, right_down_case, macro_list, index_list, timeseries,lb=0.00, ub=0.1):
+def maximize_profit(right_up_case, right_down_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
 
     def profit(x, args):
         right_sum = args
@@ -38,9 +38,11 @@ def maximize_profit(right_up_case, right_down_case, macro_list, index_list, time
         for idx, macro_cd in enumerate(macro_list):
             for time_cd in timeseries:
                 if math.isnan(right_up_case[macro_cd][index_cd][time_cd]) == False:
-                    right_up_sum[idx] += 1
-                if math.isnan(right_down_case[macro_cd][index_cd][time_cd]) == False:
-                    right_down_sum[idx] += 1
+                    right_up_sum[idx] += right_up_case[macro_cd][index_cd][time_cd]
+                # up & down을 구분하지 않고 파라미터가 1개로 전달되는 경우 pass
+                if right_down_case is not None:
+                    if math.isnan(right_down_case[macro_cd][index_cd][time_cd]) == False:
+                        right_down_sum[idx] += right_down_case[macro_cd][index_cd][time_cd]
 
         x0 = np.repeat(1 / macro_cnt, macro_cnt)
         lbound = np.repeat(lb, macro_cnt)
@@ -109,6 +111,7 @@ class FinancialCycle(object):
         # 그래프에 지수와 같이 보여주기 위해서는 position이 1이 되어야 함
         self.momentum_direction_up_right_series = {}
         self.momentum_direction_down_right_series = {}
+        self.momentum_direction_series = {}
 
     def get_macro_master(self):
         # 매크로 시계열 데이터 셋
@@ -270,13 +273,22 @@ class FinancialCycle(object):
         for macro_cd in self.macro_list:
             self.momentum_direction_up_right_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
             self.momentum_direction_down_right_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+            self.momentum_direction_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
             for index_cd in self.index_list:
                 for date_cd in self.index_timeseries:
                     # 통계 값에 nan에 의한 오류는 무시
                     if self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] == r_cd[0] and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[0]:
                         self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] = 1
+                        self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] = 0
                     elif self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[1]:
+                        self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] = 0
                         self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] = 1
+                    else:
+                        self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] = 0
+                        self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] = 0
+
+                    # 동일하지 않은 경우 패널티(-1) 발생
+                    self.momentum_direction_series[macro_cd][index_cd][date_cd] = self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] * self.pivoted_index_direction_df[index_cd][date_cd]
 
     # r_cd로 분류
     def calc_matching_status_momentum_ratio(self, r_cd=(1,-1), shift=1):
@@ -423,8 +435,12 @@ if __name__ == '__main__':
     ele.set_matching_momentum_statistic(type='mean', threshold=0.0)
 
     # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
-    right_up_case = copy.deepcopy(ele.momentum_direction_up_right_series)
-    right_down_case = copy.deepcopy(ele.momentum_direction_down_right_series)
+    if 1:
+        right_up_case = copy.deepcopy(ele.momentum_direction_up_right_series)
+        right_down_case = copy.deepcopy(ele.momentum_direction_down_right_series)
+    else:
+        right_up_case = copy.deepcopy(ele.momentum_direction_series)
+        right_down_case = None
     macro_list = copy.deepcopy(ele.macro_list)
     index_list = copy.deepcopy(ele.index_list)
     timeseries = copy.deepcopy(ele.index_timeseries)
