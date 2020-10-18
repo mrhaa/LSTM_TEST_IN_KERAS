@@ -358,7 +358,7 @@ class FinancialCycle(object):
             macro_ctry = self.macro_master_df['ctry'][macro_cd]
             macro_nm = self.macro_master_df['nm'][macro_cd]
             panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.result_momentum_up_right[macro_cd], self.result_momentum_down_right[macro_cd])
-                              , anal_value=self.result_momentum[macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt/sub_plot_row))
+                              , anal_value=self.macro_index_momentum_relation_statistic_df[macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt/sub_plot_row))
                               , img_save=img_save)
 
 
@@ -404,11 +404,11 @@ if __name__ == '__main__':
     print("################## optimized weights ##################")
     for weights_cd in weights_list:
         print(weights_cd + ': ' + str(weights_list[weights_cd]))
-    print("################## forcast index's direction ##################")
+    print("################## forecast index's direction ##################")
     for weights_cd in weights_list:
         print(weights_cd + ': ' + str(sum(weights_list[weights_cd]*ele.macro_last_df.values[0])))
 
-    ele.do_figure(weights_info=('optimized', weights_list), img_save='n')
+    ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
     ele.save_log()
 
     db.disconnect()
