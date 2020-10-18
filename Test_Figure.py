@@ -1,6 +1,7 @@
 #_*_ coding: utf-8 _*_
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from mpl_toolkits.mplot3d import Axes3D
 import random
 import platform
@@ -99,11 +100,13 @@ class Figure(object):
                     continue
 
                 data_subs[row_idx][column_idx].set_title(data.columns[idx], fontproperties=fontprop)
+                #data_subs[row_idx][column_idx].axes.get_xaxis().set_visible(False)
                 if anal_value is not None:
                     data_subs[row_idx][column_idx].set_title(data.columns[idx]+'('+str(round(anal_value[idx]*100, 2))+'%)', fontproperties=fontprop)
 
                 for analysis_sub in analysis_subs:
                     analysis_sub[row_idx][column_idx] = data_subs[row_idx][column_idx].twinx()
+                    #analysis_sub[row_idx][column_idx].axes.get_xaxis().set_visible(False)
 
                 data[data.columns[idx]].plot(ax=data_subs[row_idx][column_idx], color='k')
                 for color_idx, (anal, alaysis_sub) in enumerate(zip(analysis, analysis_subs)):
