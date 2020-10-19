@@ -15,12 +15,10 @@ from Test_MariaDB import WrapDB
 from Test_Figure import Figure
 import Wrap_Util
 
-PRINT_SC = False
-
 base_dir = (os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 
-def maximize_profit(right_up_case, right_down_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
+def maximize_profit(right_up_case, right_down_case=None, wrong_up_case=None, wrong_down_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
 
     def profit(x, args):
         right_sum = args
@@ -35,6 +33,8 @@ def maximize_profit(right_up_case, right_down_case=None, macro_list=None, index_
     for index_cd in index_list:
         right_up_sum = np.repeat(0, macro_cnt)
         right_down_sum = np.repeat(0, macro_cnt)
+        wrong_up_sum = np.repeat(0, macro_cnt)
+        wrong_down_sum = np.repeat(0, macro_cnt)
         for idx, macro_cd in enumerate(macro_list):
             for time_cd in timeseries:
                 if math.isnan(right_up_case[macro_cd][index_cd][time_cd]) == False:
@@ -43,6 +43,14 @@ def maximize_profit(right_up_case, right_down_case=None, macro_list=None, index_
                 if right_down_case is not None:
                     if math.isnan(right_down_case[macro_cd][index_cd][time_cd]) == False:
                         right_down_sum[idx] += right_down_case[macro_cd][index_cd][time_cd]
+                # up & down을 구분하지 않고 파라미터가 1개로 전달되는 경우 pass
+                if wrong_up_case is not None:
+                    if math.isnan(wrong_up_case[macro_cd][index_cd][time_cd]) == False:
+                        wrong_up_sum[idx] += wrong_up_case[macro_cd][index_cd][time_cd]
+                # up & down을 구분하지 않고 파라미터가 1개로 전달되는 경우 pass
+                if wrong_down_case is not None:
+                    if math.isnan(wrong_down_case[macro_cd][index_cd][time_cd]) == False:
+                        wrong_down_sum[idx] += wrong_down_case[macro_cd][index_cd][time_cd]
 
         x0 = np.repeat(1 / macro_cnt, macro_cnt)
         lbound = np.repeat(lb, macro_cnt)
@@ -53,7 +61,7 @@ def maximize_profit(right_up_case, right_down_case=None, macro_list=None, index_
 
         result = minimize(fun=profit,
                           x0=x0,
-                          args=(right_up_sum+right_down_sum),
+                          args=(right_up_sum+right_down_sum-wrong_up_sum-wrong_down_sum),
                           method='SLSQP',
                           constraints=constraints,
                           options=options,
@@ -111,6 +119,8 @@ class FinancialCycle(object):
         # 그래프에 지수와 같이 보여주기 위해서는 position이 1이 되어야 함
         self.momentum_direction_up_right_series = {}
         self.momentum_direction_down_right_series = {}
+        self.momentum_direction_up_wrong_series = {}
+        self.momentum_direction_down_wrong_series = {}
         self.momentum_direction_series = {}
 
     def get_macro_master(self):
@@ -273,19 +283,21 @@ class FinancialCycle(object):
         for macro_cd in self.macro_list:
             self.momentum_direction_up_right_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
             self.momentum_direction_down_right_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+            self.momentum_direction_up_wrong_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+            self.momentum_direction_down_wrong_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
             self.momentum_direction_series[macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+
             for index_cd in self.index_list:
                 for date_cd in self.index_timeseries:
                     # 통계 값에 nan에 의한 오류는 무시
                     if self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] == r_cd[0] and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[0]:
                         self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] = 1
-                        self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] = 0
                     elif self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[1]:
-                        self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] = 0
                         self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] = 1
-                    else:
-                        self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] = 0
-                        self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] = 0
+                    elif self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] == r_cd[0] and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[1]:
+                        self.momentum_direction_up_wrong_series[macro_cd][index_cd][date_cd] = 1
+                    elif self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[0]:
+                        self.momentum_direction_down_wrong_series[macro_cd][index_cd][date_cd] = 1
 
                     # 동일하지 않은 경우 패널티(-1) 발생
                     self.momentum_direction_series[macro_cd][index_cd][date_cd] = self.pivoted_macro_momentum_shift_df[shift][macro_cd][date_cd] * self.pivoted_index_direction_df[index_cd][date_cd]
@@ -322,19 +334,27 @@ class FinancialCycle(object):
 
         self.momentum_direction_up_right_series[key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
         self.momentum_direction_down_right_series[key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+        self.momentum_direction_up_wrong_series[key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+        self.momentum_direction_down_wrong_series[key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
 
         for index_cd in self.index_list:
             weights = weights_info[1][index_cd] if weights_info is not None else weights
             for date_cd in self.index_timeseries:
                 momentum_up_right = np.repeat(0, self.macro_cnt)
                 momentum_down_right = np.repeat(0, self.macro_cnt)
+                momentum_up_wrong = np.repeat(0, self.macro_cnt)
+                momentum_down_wrong = np.repeat(0, self.macro_cnt)
                 for idx, macro_cd in enumerate(self.macro_list):
                     momentum_up_right[idx] = self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd]) == False else 0
                     momentum_down_right[idx] = self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_up_wrong[idx] = self.momentum_direction_up_wrong_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_up_wrong_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_down_wrong[idx] = self.momentum_direction_down_wrong_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_down_wrong_series[macro_cd][index_cd][date_cd]) == False else 0
 
                 if type == 'mean':
                     self.momentum_direction_up_right_series[key][index_cd][date_cd] = round(sum(momentum_up_right*weights), 2) if sum(momentum_up_right*weights) > threshold else 0
                     self.momentum_direction_down_right_series[key][index_cd][date_cd] = round(sum(momentum_down_right*weights), 2) if sum(momentum_down_right*weights) > threshold else 0
+                    self.momentum_direction_up_wrong_series[key][index_cd][date_cd] = round(sum(momentum_up_wrong * weights), 2) if sum(momentum_up_wrong * weights) > threshold else 0
+                    self.momentum_direction_down_wrong_series[key][index_cd][date_cd] = round(sum(momentum_down_wrong * weights), 2) if sum(momentum_down_wrong * weights) > threshold else 0
 
     def save_log(self):
         if platform.system() == 'Windows':
@@ -370,21 +390,24 @@ class FinancialCycle(object):
         macro_ctry = 'world'
         macro_nm = 'mean'
         macro_cd = macro_nm
-        panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd])
+        panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
+                          , analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd], self.momentum_direction_up_wrong_series[macro_cd], self.momentum_direction_down_wrong_series[macro_cd])
                           , anal_value=None, title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
                           , img_save=img_save)
 
         if weights_info is not None:
             macro_nm = 'mean'+'_'+weights_info[0]
             macro_cd = macro_nm
-            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd])
+            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
+                          , analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd], self.momentum_direction_up_wrong_series[macro_cd], self.momentum_direction_down_wrong_series[macro_cd])
                           , anal_value=None, title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
                           , img_save=img_save)
 
         for macro_cd in self.macro_list:
             macro_ctry = self.macro_master_df['ctry'][macro_cd]
             macro_nm = self.macro_master_df['nm'][macro_cd]
-            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd])
+            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
+                              , analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd], self.momentum_direction_up_wrong_series[macro_cd], self.momentum_direction_down_wrong_series[macro_cd])
                               , anal_value=self.macro_momentum_index_direction_relation_right_df[macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt/sub_plot_row))
                               , img_save=img_save)
 
@@ -438,13 +461,17 @@ if __name__ == '__main__':
     if 1:
         right_up_case = copy.deepcopy(ele.momentum_direction_up_right_series)
         right_down_case = copy.deepcopy(ele.momentum_direction_down_right_series)
+        wrong_up_case = copy.deepcopy(ele.momentum_direction_up_wrong_series)
+        wrong_down_case = copy.deepcopy(ele.momentum_direction_down_wrong_series)
     else:
         right_up_case = copy.deepcopy(ele.momentum_direction_series)
         right_down_case = None
+        wrong_up_case = None
+        wrong_down_case = None
     macro_list = copy.deepcopy(ele.macro_list)
     index_list = copy.deepcopy(ele.index_list)
     timeseries = copy.deepcopy(ele.index_timeseries)
-    weights_list = maximize_profit(right_up_case, right_down_case, macro_list, index_list, timeseries, lb=0.05, ub=0.95)
+    weights_list = maximize_profit(right_up_case, right_down_case, wrong_up_case, wrong_down_case, macro_list, index_list, timeseries, lb=0.05, ub=0.95)
     ele.set_matching_momentum_statistic(type='mean', weights_info=('optimized', weights_list), threshold=0.0)
     print("################## optimized weights ##################")
     print(str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']',''))
