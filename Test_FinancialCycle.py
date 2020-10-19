@@ -123,6 +123,13 @@ class FinancialCycle(object):
         self.momentum_direction_down_wrong_series = {}
         self.momentum_direction_series = {}
 
+        # 가중 평균된 매크로 데이터들을 사용하여 지수 데이터의 움직임 관계를 통계냄
+        self.macros_momentum_index_direction_relation_right_df = {}
+        self.macros_momentum_index_direction_relation_up_right_df = {}
+        self.macros_momentum_index_direction_relation_down_right_df = {}
+
+        self.macros_momentum_index_direction_relation_profit_df = {}
+
     def get_macro_master(self):
         # 매크로 시계열 데이터 셋
         sql = "select a.cd as cd, a.nm as nm, a.ctry as ctry, a.base as base" \
@@ -356,6 +363,75 @@ class FinancialCycle(object):
                     self.momentum_direction_up_wrong_series[key][index_cd][date_cd] = round(sum(momentum_up_wrong * weights), 2) if sum(momentum_up_wrong * weights) > threshold else 0
                     self.momentum_direction_down_wrong_series[key][index_cd][date_cd] = round(sum(momentum_down_wrong * weights), 2) if sum(momentum_down_wrong * weights) > threshold else 0
 
+    # 현재는 평균만 계산할 수 있음
+    def calc_matching_weighted_momentum_ratio(self, type='mean', weights_info=None, r_cd=(1,-1)):
+        key = type if weights_info is None else type + '_' + weights_info[0]
+        weights = np.repeat(1 / self.macro_cnt, self.macro_cnt)
+
+        self.macros_momentum_index_direction_relation_right_df[key] = pd.DataFrame(columns={key}, index=self.index_list)
+        self.macros_momentum_index_direction_relation_up_right_df[key] = pd.DataFrame(columns={key}, index=self.index_list)
+        self.macros_momentum_index_direction_relation_down_right_df[key] = pd.DataFrame(columns={key}, index=self.index_list)
+
+        for index_cd in self.index_list:
+            weights = weights_info[1][index_cd] if weights_info is not None else weights
+            right_up_cnt = 0
+            right_down_cnt = 0
+            for date_cd in self.index_timeseries:
+                momentum_up_right = np.repeat(0, self.macro_cnt)
+                momentum_down_right = np.repeat(0, self.macro_cnt)
+                momentum_up_wrong = np.repeat(0, self.macro_cnt)
+                momentum_down_wrong = np.repeat(0, self.macro_cnt)
+                for idx, macro_cd in enumerate(self.macro_list):
+                    momentum_up_right[idx] = self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_down_right[idx] = self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_up_wrong[idx] = self.momentum_direction_up_wrong_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_up_wrong_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_down_wrong[idx] = self.momentum_direction_down_wrong_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_down_wrong_series[macro_cd][index_cd][date_cd]) == False else 0
+
+                if type == 'mean':
+                    weighted_count_list = [sum(momentum_up_right * weights), sum(momentum_down_right * weights), sum(momentum_up_wrong * weights), sum(momentum_down_wrong * weights)]
+                    max_index = weighted_count_list.index(max(weighted_count_list))
+
+                    if max_index == 0 and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[0]:
+                        right_up_cnt += 1
+                    elif  max_index == 1 and self.pivoted_index_direction_df[index_cd][date_cd] == r_cd[1]:
+                        right_down_cnt += 1
+
+            self.macros_momentum_index_direction_relation_right_df[key][key][index_cd] = (right_up_cnt + right_down_cnt) / self.index_len
+            self.macros_momentum_index_direction_relation_up_right_df[key][key][index_cd] = right_up_cnt / self.index_len
+            self.macros_momentum_index_direction_relation_down_right_df[key][key][index_cd] = right_down_cnt / self.index_len
+
+    # 현재는 평균만 계산할 수 있음
+    def calc_matching_weighted_momentum_profit(self, type='mean', weights_info=None, r_cd=(1, -1)):
+        key = type if weights_info is None else type + '_' + weights_info[0]
+        weights = np.repeat(1 / self.macro_cnt, self.macro_cnt)
+
+        self.macros_momentum_index_direction_relation_profit_df[key] = pd.DataFrame(columns={key}, index=self.index_list)
+
+        for index_cd in self.index_list:
+            weights = weights_info[1][index_cd] if weights_info is not None else weights
+            profit = 0
+            for date_cd in self.index_timeseries:
+                momentum_up_right = np.repeat(0, self.macro_cnt)
+                momentum_down_right = np.repeat(0, self.macro_cnt)
+                momentum_up_wrong = np.repeat(0, self.macro_cnt)
+                momentum_down_wrong = np.repeat(0, self.macro_cnt)
+                for idx, macro_cd in enumerate(self.macro_list):
+                    momentum_up_right[idx] = self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_up_right_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_down_right[idx] = self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_down_right_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_up_wrong[idx] = self.momentum_direction_up_wrong_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_up_wrong_series[macro_cd][index_cd][date_cd]) == False else 0
+                    momentum_down_wrong[idx] = self.momentum_direction_down_wrong_series[macro_cd][index_cd][date_cd] if math.isnan(self.momentum_direction_down_wrong_series[macro_cd][index_cd][date_cd]) == False else 0
+
+                if type == 'mean':
+                    weighted_count_list = [sum(momentum_up_right * weights), sum(momentum_down_right * weights), sum(momentum_up_wrong * weights), sum(momentum_down_wrong * weights)]
+                    max_index = weighted_count_list.index(max(weighted_count_list))
+
+                    if max_index == 0 or max_index == 2:
+                        profit = profit + self.pivoted_index_yield_df[index_cd][date_cd] if math.isnan(self.pivoted_index_yield_df[index_cd][date_cd]) == False else 0
+                    elif max_index == 1 or max_index == 3:
+                        profit = profit - self.pivoted_index_yield_df[index_cd][date_cd] if math.isnan(self.pivoted_index_yield_df[index_cd][date_cd]) == False else 0
+
+            self.macros_momentum_index_direction_relation_profit_df[key][key][index_cd] = profit
+
     def save_log(self):
         if platform.system() == 'Windows':
             Wrap_Util.SaveExcelFiles(file='%s\\corr ratio.xlsx' % (base_dir)
@@ -392,7 +468,7 @@ class FinancialCycle(object):
         macro_cd = macro_nm
         panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
                           , analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd], self.momentum_direction_up_wrong_series[macro_cd], self.momentum_direction_down_wrong_series[macro_cd])
-                          , anal_value=None, title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
+                          , anal_value=self.macros_momentum_index_direction_relation_right_df[macro_cd][macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
                           , img_save=img_save)
 
         if weights_info is not None:
@@ -400,7 +476,7 @@ class FinancialCycle(object):
             macro_cd = macro_nm
             panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
                           , analysis=(self.momentum_direction_up_right_series[macro_cd], self.momentum_direction_down_right_series[macro_cd], self.momentum_direction_up_wrong_series[macro_cd], self.momentum_direction_down_wrong_series[macro_cd])
-                          , anal_value=None, title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
+                          , anal_value=self.macros_momentum_index_direction_relation_right_df[macro_cd][macro_cd], title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
                           , img_save=img_save)
 
         for macro_cd in self.macro_list:
@@ -440,22 +516,33 @@ if __name__ == '__main__':
     ele.calc_matching_status_ratio()
     # 매크로 데이터의 모멘텀과 지수 데이터의 방향성이 동일한 경우 확인
     ele.calc_matching_momentum_ratio()
+
     print("################## macro & index matching momentum ratio ##################")
     for idx_col, index_cd in enumerate(ele.index_list):
         if idx_col == 0:
-            txt_str = str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','') + '\n'
+            txt_str = '\t' + str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",'') + '\n'
         for idx_row, macro_cd in enumerate(ele.macro_list):
             if idx_row == 0:
                 txt_str = txt_str + index_cd + ':\t'
             txt_str = txt_str + str(round(ele.macro_momentum_index_direction_relation_right_df[macro_cd][index_cd], 2)) + '\t'
         txt_str = txt_str + '\n'
     print(txt_str)
-    print("###########################################################################")
+
     ele.set_matching_momentum_series()
     # 매크로 데이터의 기준값 대비 상태, 모멘텀과 지수 데이터의 방향성이 동일한 경우 확인
     ele.calc_matching_status_momentum_ratio()
     # 매크로 데이터들의 평균 모멘텀 적용
     ele.set_matching_momentum_statistic(type='mean', threshold=0.0)
+    ele.calc_matching_weighted_momentum_ratio(type='mean')
+    ele.calc_matching_weighted_momentum_profit(type='mean')
+
+    print("################## macros momentum & index direction matching equal weights ratio ##################")
+    for index_cd in ele.macros_momentum_index_direction_relation_right_df['mean'].index:
+        print(index_cd + ':\t' + str(round(ele.macros_momentum_index_direction_relation_right_df['mean']['mean'][index_cd], 2)))
+
+    print("################## macros momentum & index direction matching equal weights profit ##################")
+    for index_cd in ele.macros_momentum_index_direction_relation_profit_df['mean'].index:
+        print(index_cd + ':\t' + str(round(ele.macros_momentum_index_direction_relation_profit_df['mean']['mean'][index_cd], 2)))
 
     # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
     if 1:
@@ -471,18 +558,29 @@ if __name__ == '__main__':
     macro_list = copy.deepcopy(ele.macro_list)
     index_list = copy.deepcopy(ele.index_list)
     timeseries = copy.deepcopy(ele.index_timeseries)
-    weights_list = maximize_profit(right_up_case, right_down_case, wrong_up_case, wrong_down_case, macro_list, index_list, timeseries, lb=0.05, ub=0.95)
+    weights_list = maximize_profit(right_up_case, right_down_case, wrong_up_case, wrong_down_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
     ele.set_matching_momentum_statistic(type='mean', weights_info=('optimized', weights_list), threshold=0.0)
+    ele.calc_matching_weighted_momentum_ratio(type='mean', weights_info=('optimized', weights_list))
+    ele.calc_matching_weighted_momentum_profit(type='mean', weights_info=('optimized', weights_list))
+
+    print("################## macros momentum & index direction matching optimized weights ratio ##################")
+    for index_cd in ele.macros_momentum_index_direction_relation_right_df['mean'+'_'+'optimized'].index:
+        print(index_cd + ':\t' + str(round(ele.macros_momentum_index_direction_relation_right_df['mean'+'_'+'optimized']['mean'+'_'+'optimized'][index_cd], 2)))
+
+    print("################## macros momentum & index direction matching optimized weights profit ##################")
+    for index_cd in ele.macros_momentum_index_direction_relation_profit_df['mean' + '_' + 'optimized'].index:
+        print(index_cd + ':\t' + str(round(ele.macros_momentum_index_direction_relation_profit_df['mean' + '_' + 'optimized']['mean' + '_' + 'optimized'][index_cd], 2)))
+
     print("################## optimized weights ##################")
-    print(str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']',''))
+    print('\t'+str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",''))
     for weights_cd in weights_list:
         print(weights_cd + ':\t' + str(weights_list[weights_cd]).replace(',', '\t').replace('[','').replace(']',''))
-    print("#######################################################")
+
     print("################## forecast index's direction ##################")
     for weights_cd in weights_list:
         print(weights_cd + ':\t' + str(round(sum(weights_list[weights_cd]*ele.macro_last_df.values[0]), 2)))
-    print("################################################################")
-    ele.do_figure(weights_info=('optimized', weights_list), img_save='n')
+
+    ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
     ele.save_log()
 
     db.disconnect()
