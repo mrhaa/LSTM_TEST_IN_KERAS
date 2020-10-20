@@ -100,9 +100,11 @@ class FinancialCycle(object):
         self.index_list = None
         self.index_timeseries = None
 
+        # status, momentum, diff
         self.pivoted_macro_property_dfs = {} # 해당 월의 값은 지수 데이터의 다음 월이랑 매핑, shift df를 이용해 로직 적용
-        self.pivoted_macro_property_shift_dfs = {} # shift의 단위는 M이고 기간이 동적으로 변경될 수 있음. 기간을 dictionary의 key로 사용
+        self.pivoted_macro_property_shift_dfs = {} # shift의 단위는 M이고 1개월을 shift 함
 
+        # direction, yield
         self.pivoted_index_property_dfs = {} # 해당 월의 방향은 해당 row에 저장
 
         # 매크로 데이터의 속성과 지수 데이터의 움직임 관계를 통계냄
@@ -175,9 +177,12 @@ class FinancialCycle(object):
                         self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = r_cd[0] if self.pivoted_macro_value_df[macro_cd][date_cd] > base_value else r_cd[1]
                     elif type == 'momentum':
                         self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = r_cd[0] if self.pivoted_macro_value_df[macro_cd][date_cd] > prev_value else r_cd[1]
+                    # 매크로 데이터 종류에 따라 변화률을 계산하는 방법이 다름
                     elif type == 'diff':
+                        # 인덱스의 경우 변화률을 계산
                         if unit == 'I':
                             self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = self.pivoted_macro_value_df[macro_cd][date_cd] / prev_value - 1
+                        # 퍼센트의 경우 차이를 이용해서 퍼센트 포인트를 계산
                         elif unit == 'P':
                             self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = self.pivoted_macro_value_df[macro_cd][date_cd] - prev_value
                 prev_value = self.pivoted_macro_value_df[macro_cd][date_cd]
