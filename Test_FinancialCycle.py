@@ -18,7 +18,7 @@ import Wrap_Util
 base_dir = (os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 
-def maximize_profit(right_up_case, right_down_case=None, wrong_up_case=None, wrong_down_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
+def maximize_profit(up_right_case, down_right_case=None, up_wrong_case=None, down_wrong_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
 
     def profit(x, args):
         right_sum = args
@@ -31,26 +31,26 @@ def maximize_profit(right_up_case, right_down_case=None, wrong_up_case=None, wro
     macro_cnt = len(macro_list)
     weights_list = {}
     for index_cd in index_list:
-        right_up_sum = np.repeat(0, macro_cnt)
-        right_down_sum = np.repeat(0, macro_cnt)
-        wrong_up_sum = np.repeat(0, macro_cnt)
-        wrong_down_sum = np.repeat(0, macro_cnt)
+        up_right_sum = np.repeat(0, macro_cnt)
+        down_right_sum = np.repeat(0, macro_cnt)
+        up_wrong_sum = np.repeat(0, macro_cnt)
+        down_wrong_sum = np.repeat(0, macro_cnt)
         for idx, macro_cd in enumerate(macro_list):
             for time_cd in timeseries:
-                if math.isnan(right_up_case[macro_cd][index_cd][time_cd]) == False:
-                    right_up_sum[idx] += right_up_case[macro_cd][index_cd][time_cd]
+                if math.isnan(up_right_case[macro_cd][index_cd][time_cd]) == False:
+                    up_right_sum[idx] += up_right_case[macro_cd][index_cd][time_cd]
                 # up & down을 구분하지 않고 파라미터가 1개로 전달되는 경우 pass
-                if right_down_case is not None:
-                    if math.isnan(right_down_case[macro_cd][index_cd][time_cd]) == False:
-                        right_down_sum[idx] += right_down_case[macro_cd][index_cd][time_cd]
+                if down_right_case is not None:
+                    if math.isnan(down_right_case[macro_cd][index_cd][time_cd]) == False:
+                        down_right_sum[idx] += down_right_case[macro_cd][index_cd][time_cd]
                 # up & down을 구분하지 않고 파라미터가 1개로 전달되는 경우 pass
-                if wrong_up_case is not None:
-                    if math.isnan(wrong_up_case[macro_cd][index_cd][time_cd]) == False:
-                        wrong_up_sum[idx] += wrong_up_case[macro_cd][index_cd][time_cd]
+                if up_wrong_case is not None:
+                    if math.isnan(up_wrong_case[macro_cd][index_cd][time_cd]) == False:
+                        up_wrong_sum[idx] += up_wrong_case[macro_cd][index_cd][time_cd]
                 # up & down을 구분하지 않고 파라미터가 1개로 전달되는 경우 pass
-                if wrong_down_case is not None:
-                    if math.isnan(wrong_down_case[macro_cd][index_cd][time_cd]) == False:
-                        wrong_down_sum[idx] += wrong_down_case[macro_cd][index_cd][time_cd]
+                if down_wrong_case is not None:
+                    if math.isnan(down_wrong_case[macro_cd][index_cd][time_cd]) == False:
+                        down_wrong_sum[idx] += down_wrong_case[macro_cd][index_cd][time_cd]
 
         x0 = np.repeat(1 / macro_cnt, macro_cnt)
         lbound = np.repeat(lb, macro_cnt)
@@ -61,7 +61,7 @@ def maximize_profit(right_up_case, right_down_case=None, wrong_up_case=None, wro
 
         result = minimize(fun=profit,
                           x0=x0,
-                          args=(right_up_sum+right_down_sum-wrong_up_sum-wrong_down_sum),
+                          args=(up_right_sum+down_right_sum-up_wrong_sum-down_wrong_sum),
                           method='SLSQP',
                           constraints=constraints,
                           options=options,
@@ -432,9 +432,8 @@ class FinancialCycle(object):
     def save_log(self):
         if platform.system() == 'Windows':
             Wrap_Util.SaveExcelFiles(file='%s\\corr ratio.xlsx' % (base_dir)
-                                     , obj_dict={'macro_status_index_direction_relation_right_df': self.macro_status_index_direction_relation_right_df
-                                                , 'macro_momentum_index_direction_relation_right_df': self.macro_momentum_index_direction_relation_right_df
-                                                , 'macro_status_momentum_index_direction_relation_right_df': self.macro_status_momentum_index_direction_relation_right_df
+                                     , obj_dict={'relation_right_dfs[status]': self.relation_right_dfs['status']
+                                                , 'relation_right_dfs[momentum]': self.relation_right_dfs['momentum']
                                                 , 'pivoted_macro_property[status]': self.pivoted_macro_property_dfs['status']
                                                 , 'pivoted_macro_property[momentum]' : self.pivoted_macro_property_dfs['momentum']
                                                 , 'pivoted_index_property[direction]': self.pivoted_index_property_dfs['direction']
@@ -528,8 +527,7 @@ if __name__ == '__main__':
     print(txt_str)
 
     ele.set_matching_properties_series(macro_type='momentum', index_type='direction')
-    # 매크로 데이터의 기준값 대비 상태, 모멘텀과 지수 데이터의 방향성이 동일한 경우 확인
-    #ele.calc_matching_status_momentum_ratio()
+
     # 매크로 데이터들의 평균 모멘텀 적용
     ele.set_matching_properties_weighted_statistic_series(type='mean', threshold=0.0, macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_ratio(type='mean', macro_type='momentum', index_type='direction')
@@ -545,19 +543,19 @@ if __name__ == '__main__':
 
     # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
     if 1:
-        right_up_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
-        right_down_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
-        wrong_up_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
-        wrong_down_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
+        up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
+        down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
+        up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
+        down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
     else:
-        right_up_case = copy.deepcopy(ele.relation_series['momentum_direction'])
-        right_down_case = None
-        wrong_up_case = None
-        wrong_down_case = None
+        up_right_case = copy.deepcopy(ele.relation_series['momentum_direction'])
+        down_right_case = None
+        up_wrong_case = None
+        down_wrong_case = None
     macro_list = copy.deepcopy(ele.macro_list)
     index_list = copy.deepcopy(ele.index_list)
     timeseries = copy.deepcopy(ele.index_timeseries)
-    weights_list = maximize_profit(right_up_case, right_down_case, wrong_up_case, wrong_down_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
+    weights_list = maximize_profit(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
     ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_profit(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
