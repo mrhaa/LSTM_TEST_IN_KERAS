@@ -17,16 +17,17 @@ import Wrap_Util
 
 base_dir = (os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
+SC_LOG = True
 
 def maximize_profit(up_right_case=None, down_right_case=None, up_wrong_case=None, down_wrong_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
-
+    #print('####################################################################')
     if up_right_case==None and down_right_case==None and up_wrong_case==None and down_wrong_case==None:
         return None
 
     def profit(x, args):
         right_sum = args
 
-        return 1/sum(x*right_sum)
+        return -sum(x*right_sum)
 
     def sum_weight(x):
         return 1-sum(x)
@@ -63,6 +64,8 @@ def maximize_profit(up_right_case=None, down_right_case=None, up_wrong_case=None
         constraints = {'type': 'eq', 'fun': sum_weight}
         options = {'ftol': 1e-20, 'maxiter': 5000, 'disp': False}
 
+        #print(up_right_sum, down_right_sum, up_wrong_sum, down_wrong_sum)
+        #print(up_right_sum+down_right_sum-up_wrong_sum-down_wrong_sum)
         result = minimize(fun=profit,
                           x0=x0,
                           args=(up_right_sum+down_right_sum-up_wrong_sum-down_wrong_sum),
@@ -519,16 +522,17 @@ if __name__ == '__main__':
     # 매크로 데이터의 모멘텀과 지수 데이터의 방향성이 동일한 경우 확인
     ele.calc_matching_properties_ratio(macro_type='momentum', index_type='direction')
 
-    print("################## macro & index matching momentum ratio ##################")
-    for idx_col, index_cd in enumerate(ele.index_list):
-        if idx_col == 0:
-            txt_str = '\t' + str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",'') + '\n'
-        for idx_row, macro_cd in enumerate(ele.macro_list):
-            if idx_row == 0:
-                txt_str = txt_str + index_cd + ':\t'
-            txt_str = txt_str + str(round(ele.relation_right_dfs['momentum_direction'][macro_cd][index_cd], 2)) + '\t'
-        txt_str = txt_str + '\n'
-    print(txt_str)
+    if SC_LOG == True:
+        print("################## macro & index matching momentum ratio ##################")
+        for idx_col, index_cd in enumerate(ele.index_list):
+            if idx_col == 0:
+                txt_str = '\t' + str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",'') + '\n'
+            for idx_row, macro_cd in enumerate(ele.macro_list):
+                if idx_row == 0:
+                    txt_str = txt_str + index_cd + ':\t'
+                txt_str = txt_str + str(round(ele.relation_right_dfs['momentum_direction'][macro_cd][index_cd], 2)) + '\t'
+            txt_str = txt_str + '\n'
+        print(txt_str)
 
     ele.set_matching_properties_series(macro_type='momentum', index_type='direction')
 
@@ -537,47 +541,71 @@ if __name__ == '__main__':
     ele.calc_matching_properties_weighted_statistic_ratio(type='mean', macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_profit(type='mean', macro_type='momentum', index_type='direction')
 
-    print("################## macros momentum & index direction matching equal weights ratio ##################")
-    for index_cd in ele.relation_right_dfs['momentum_direction'].index:
-        print(index_cd + ':\t' + str(round(ele.relation_right_dfs['momentum_direction']['mean'][index_cd], 2)))
+    if SC_LOG == True:
+        print("################## macros momentum & index direction matching equal weights ratio ##################")
+        for index_cd in ele.relation_right_dfs['momentum_direction'].index:
+            print(index_cd + ':\t' + str(round(ele.relation_right_dfs['momentum_direction']['mean'][index_cd], 2)))
 
-    print("################## macros momentum & index direction matching equal weights profit ##################")
-    for index_cd in ele.relation_profit_dfs['momentum_direction'].index:
-        print(index_cd + ':\t' + str(round(ele.relation_profit_dfs['momentum_direction']['mean'][index_cd], 2)))
+        print("################## macros momentum & index direction matching equal weights profit ##################")
+        for index_cd in ele.relation_profit_dfs['momentum_direction'].index:
+            print(index_cd + ':\t' + str(round(ele.relation_profit_dfs['momentum_direction']['mean'][index_cd], 2)))
 
-    # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
-    up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
-    down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
-    up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
-    down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
+    for i in range(1):
+        if i == 0:
+            # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
+            up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
+            down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
+            up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
+            down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
+        elif i == 1:
+            up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
+            down_right_case = None
+            up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
+            down_wrong_case = None
+        elif i == 2:
+            up_right_case = None
+            down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
+            up_wrong_case = None
+            down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
+        elif i == 3:
+            up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
+            down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
+            up_wrong_case = None
+            down_wrong_case = None
+        elif i == 4:
+            up_right_case = None
+            down_right_case = None
+            up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
+            down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
 
-    macro_list = copy.deepcopy(ele.macro_list)
-    index_list = copy.deepcopy(ele.index_list)
-    timeseries = copy.deepcopy(ele.index_timeseries)
+        macro_list = copy.deepcopy(ele.macro_list)
+        index_list = copy.deepcopy(ele.index_list)
+        timeseries = copy.deepcopy(ele.index_timeseries)
 
-    weights_list = maximize_profit(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
-    ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
-    ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
-    ele.calc_matching_properties_weighted_statistic_profit(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
+        weights_list = maximize_profit(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
+        ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
+        ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
+        ele.calc_matching_properties_weighted_statistic_profit(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
 
-    print("################## macros momentum & index direction matching optimized weights ratio ##################")
-    for index_cd in ele.relation_right_dfs['momentum_direction'].index:
-        print(index_cd + ':\t' + str(round(ele.relation_right_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
+        if SC_LOG == True:
+            print("################## macros momentum & index direction matching optimized weights ratio ##################")
+            for index_cd in ele.relation_right_dfs['momentum_direction'].index:
+                print(index_cd + ':\t' + str(round(ele.relation_right_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
 
-    print("################## macros momentum & index direction matching optimized weights profit ##################")
-    for index_cd in ele.relation_profit_dfs['momentum_direction'].index:
-        print(index_cd + ':\t' + str(round(ele.relation_profit_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
+            print("################## macros momentum & index direction matching optimized weights profit ##################")
+            for index_cd in ele.relation_profit_dfs['momentum_direction'].index:
+                print(index_cd + ':\t' + str(round(ele.relation_profit_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
 
-    print("################## optimized weights ##################")
-    print('\t'+str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",''))
-    for weights_cd in weights_list:
-        print(weights_cd + ':\t' + str(weights_list[weights_cd]).replace(',', '\t').replace('[','').replace(']',''))
+            print("################## optimized weights ##################")
+            print('\t'+str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",''))
+            for weights_cd in weights_list:
+                print(weights_cd + ':\t' + str(weights_list[weights_cd]).replace(',', '\t').replace('[','').replace(']',''))
 
-    print("################## forecast index's direction ##################")
-    for weights_cd in weights_list:
-        print(weights_cd + ':\t' + str(round(sum(weights_list[weights_cd]*ele.macro_last_df.values[0]), 2)))
+            print("################## forecast index's direction ##################")
+            for weights_cd in weights_list:
+                print(weights_cd + ':\t' + str(round(sum(weights_list[weights_cd]*ele.macro_last_df.values[0]), 2)))
 
-    #ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
+    ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
     ele.save_log()
 
     db.disconnect()
