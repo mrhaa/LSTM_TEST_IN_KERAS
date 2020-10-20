@@ -471,10 +471,14 @@ class FinancialCycle(object):
         macro_nm = 'mean'
         macro_cd = macro_nm
 
+
         panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
                           , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd], self.relation_up_wrong_series[macro_index_key][macro_cd], self.relation_down_wrong_series[macro_index_key][macro_cd])
                           , anal_value=self.relation_right_dfs[macro_index_key][macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
                           , img_save=img_save)
+
+        panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.relation_series[macro_index_key][macro_cd],), anal_value=self.relation_right_dfs[macro_index_key][macro_cd]
+                                                      , title=macro_ctry+'_'+macro_nm+'_single', figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row)), ylim=(-1,1), img_save=img_save)
 
         if weights_info is not None:
             macro_nm = 'mean'+'_'+weights_info[0]
@@ -483,6 +487,8 @@ class FinancialCycle(object):
                           , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd], self.relation_up_wrong_series[macro_index_key][macro_cd], self.relation_down_wrong_series[macro_index_key][macro_cd])
                           , anal_value=self.relation_right_dfs[macro_index_key][macro_cd], title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
                           , img_save=img_save)
+            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df , analysis=(self.relation_series[macro_index_key][macro_cd],), anal_value=self.relation_right_dfs[macro_index_key][macro_cd],
+                                                          title=macro_ctry+'_'+macro_nm+'_single', figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row)), ylim=(-1,1), img_save=img_save)
 
         for macro_cd in self.macro_list:
             macro_ctry = self.macro_master_df['ctry'][macro_cd]

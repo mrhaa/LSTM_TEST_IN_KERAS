@@ -78,7 +78,7 @@ class Figure(object):
     def __init__(self):
         print("### Make Panel ###")
 
-    def draw_multi_graph_with_matching_analysis(self, data=None, analysis=None, anal_value=None, title="", figsize=(10, 10), figshape=(1,1), img_save='n'):
+    def draw_multi_graph_with_matching_analysis(self, data=None, analysis=None, anal_value=None, title="", figsize=(10, 10), figshape=(1,1), ylim=(0,1), img_save='n'):
 
         color_list = ('g', 'r', 'b', 'y')
 
@@ -110,7 +110,7 @@ class Figure(object):
 
                 data[data.columns[idx]].plot(ax=data_subs[row_idx][column_idx], color='k')
                 for color_idx, (anal, alaysis_sub) in enumerate(zip(analysis, analysis_subs)):
-                    anal[data.columns[idx]].plot(ax=alaysis_sub[row_idx][column_idx], kind='bar', position=1, width=1, color=color_list[color_idx%len(color_list)], alpha=0.3, ylim=(0,1))
+                    anal[data.columns[idx]].plot(ax=alaysis_sub[row_idx][column_idx], kind='bar', position=1, width=1, color=color_list[color_idx%len(color_list)], alpha=0.3, ylim=ylim)
 
         if img_save == 'y':
             plt.savefig('%s_momentum_triger.png' % (title))
