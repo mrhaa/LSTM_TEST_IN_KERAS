@@ -90,7 +90,7 @@ class FinancialCycle(object):
         self.macro_len = 0
         self.macro_list = None
         self.macro_timeseries = None
-        self.macro_last_df = None
+        self.macro_last_df = {}
 
         self.index_master_df = None
         self.index_value_df = None
@@ -127,15 +127,15 @@ class FinancialCycle(object):
 
     def get_macro_master(self):
         # 매크로 시계열 데이터 셋
-        sql = "select a.cd as cd, a.nm as nm, a.ctry as ctry, a.base as base" \
+        sql = "select a.cd as cd, a.nm as nm, a.ctry as ctry, a.base as base, a.unit as unit" \
               "  from macro_master a" \
               "     , macro_value b" \
               " where a.base is not null" \
               "   and a.cd = b.cd" \
-              " group by a.cd, a.nm, a.ctry, a.base" \
+              " group by a.cd, a.nm, a.ctry, a.base, a.unit" \
               " having count(*) > 0"
         self.macro_master_df = self.db.select_query(sql)
-        self.macro_master_df.columns = ('cd', 'nm', 'ctry', 'base')
+        self.macro_master_df.columns = ('cd', 'nm', 'ctry', 'base', 'unit')
         self.macro_master_df.set_index('cd', inplace=True)
 
     def get_macro_value(self):
@@ -168,20 +168,25 @@ class FinancialCycle(object):
         self.pivoted_macro_property_dfs[type] = pd.DataFrame(columns=self.macro_list, index=self.macro_timeseries)
         for macro_cd in self.macro_list:
             base_value = self.macro_master_df['base'][macro_cd]
+            unit = self.macro_master_df['unit'][macro_cd]
             for idx, date_cd in enumerate(self.macro_timeseries):
                 if idx > 0:
                     if type == 'status':
                         self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = r_cd[0] if self.pivoted_macro_value_df[macro_cd][date_cd] > base_value else r_cd[1]
                     elif type == 'momentum':
                         self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = r_cd[0] if self.pivoted_macro_value_df[macro_cd][date_cd] > prev_value else r_cd[1]
+                    elif type == 'diff':
+                        if unit == 'I':
+                            self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = self.pivoted_macro_value_df[macro_cd][date_cd] / prev_value - 1
+                        elif unit == 'P':
+                            self.pivoted_macro_property_dfs[type][macro_cd][date_cd] = self.pivoted_macro_value_df[macro_cd][date_cd] - prev_value
                 prev_value = self.pivoted_macro_value_df[macro_cd][date_cd]
 
         # 지수 움직임과 시점을 맞추기 위해 1개월 lag
         self.pivoted_macro_property_shift_dfs[type] = self.pivoted_macro_property_dfs[type].shift(shift)
 
         # 구간 예상을 위해 마지막 매크로 데이터 저장
-        if type == 'status':
-            self.macro_last_df = self.pivoted_macro_property_dfs[type][-1:]
+        self.macro_last_df[type] = self.pivoted_macro_property_dfs[type][-1:]
 
     def get_index_master(self):
         # 지수 시계열 데이터 셋팅
@@ -609,7 +614,7 @@ if __name__ == '__main__':
 
             print("################## forecast index's direction ##################")
             for weights_cd in weights_list:
-                print(weights_cd + ':\t' + str(round(sum(weights_list[weights_cd]*ele.macro_last_df.values[0]), 2)))
+                print(weights_cd + ':\t' + str(round(sum(weights_list[weights_cd]*ele.macro_last_df['momentum'].values[0]), 2)))
 
     ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
     ele.save_log()
