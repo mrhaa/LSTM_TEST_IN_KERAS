@@ -436,11 +436,11 @@ class FinancialCycle(object):
     def save_log(self):
         if platform.system() == 'Windows':
             Wrap_Util.SaveExcelFiles(file='%s\\corr ratio.xlsx' % (base_dir)
-                                     , obj_dict={'relation_right_dfs[status]': self.relation_right_dfs['status']
-                                                , 'relation_right_dfs[momentum]': self.relation_right_dfs['momentum']
-                                                , 'pivoted_macro_property[status]': self.pivoted_macro_property_dfs['status']
-                                                , 'pivoted_macro_property[momentum]' : self.pivoted_macro_property_dfs['momentum']
-                                                , 'pivoted_index_property[direction]': self.pivoted_index_property_dfs['direction']
+                                     , obj_dict={'relation_right_dfs(momentum_direction)': self.relation_right_dfs['momentum_direction']
+                                                , 'pivoted_macro_property(status)': self.pivoted_macro_property_dfs['status']
+                                                , 'pivoted_macro_property(momentum)': self.pivoted_macro_property_dfs['momentum']
+                                                , 'pivoted_index_property(direction)': self.pivoted_index_property_dfs['direction']
+                                                , 'pivoted_index_property(yield)': self.pivoted_index_property_dfs['yield']
                                                 , 'pivoted_index_value_df': self.pivoted_index_value_df
                                                 , 'pivoted_macro_value_df': self.pivoted_macro_value_df})
 
@@ -546,19 +546,15 @@ if __name__ == '__main__':
         print(index_cd + ':\t' + str(round(ele.relation_profit_dfs['momentum_direction']['mean'][index_cd], 2)))
 
     # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
-    if 1:
-        up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
-        down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
-        up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
-        down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
-    else:
-        up_right_case = copy.deepcopy(ele.relation_series['momentum_direction'])
-        down_right_case = None
-        up_wrong_case = None
-        down_wrong_case = None
+    up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
+    down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
+    up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
+    down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
+
     macro_list = copy.deepcopy(ele.macro_list)
     index_list = copy.deepcopy(ele.index_list)
     timeseries = copy.deepcopy(ele.index_timeseries)
+
     weights_list = maximize_profit(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
     ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
@@ -581,7 +577,7 @@ if __name__ == '__main__':
     for weights_cd in weights_list:
         print(weights_cd + ':\t' + str(round(sum(weights_list[weights_cd]*ele.macro_last_df.values[0]), 2)))
 
-    ele.do_figure(weights_info=('optimized', weights_list), img_save='n')
+    #ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
     ele.save_log()
 
     db.disconnect()
