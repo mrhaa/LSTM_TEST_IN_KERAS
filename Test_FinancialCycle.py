@@ -18,7 +18,10 @@ import Wrap_Util
 base_dir = (os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 
-def maximize_profit(up_right_case, down_right_case=None, up_wrong_case=None, down_wrong_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
+def maximize_profit(up_right_case=None, down_right_case=None, up_wrong_case=None, down_wrong_case=None, macro_list=None, index_list=None, timeseries=None,lb=0.00, ub=0.1):
+
+    if up_right_case==None and down_right_case==None and up_wrong_case==None and down_wrong_case==None:
+        return None
 
     def profit(x, args):
         right_sum = args
@@ -37,8 +40,9 @@ def maximize_profit(up_right_case, down_right_case=None, up_wrong_case=None, dow
         down_wrong_sum = np.repeat(0, macro_cnt)
         for idx, macro_cd in enumerate(macro_list):
             for time_cd in timeseries:
-                if math.isnan(up_right_case[macro_cd][index_cd][time_cd]) == False:
-                    up_right_sum[idx] += up_right_case[macro_cd][index_cd][time_cd]
+                if up_right_case is not None:
+                    if math.isnan(up_right_case[macro_cd][index_cd][time_cd]) == False:
+                        up_right_sum[idx] += up_right_case[macro_cd][index_cd][time_cd]
                 # up & down을 구분하지 않고 파라미터가 1개로 전달되는 경우 pass
                 if down_right_case is not None:
                     if math.isnan(down_right_case[macro_cd][index_cd][time_cd]) == False:
@@ -308,7 +312,7 @@ class FinancialCycle(object):
         self.relation_down_wrong_dfs[macro_index_key][key] = pd.Series()
 
         for index_cd in self.index_list:
-            weights = weights_info[1][index_cd] if weights_info is not None else weights
+            weights = weights_info[1][index_cd] if weights_info is not None and weights_info[1] is not None else weights
             up_right_cnt = 0
             down_right_cnt = 0
             up_wrong_cnt = 0
@@ -364,7 +368,7 @@ class FinancialCycle(object):
         self.relation_down_wrong_series[macro_index_key][key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
 
         for index_cd in self.index_list:
-            weights = weights_info[1][index_cd] if weights_info is not None else weights
+            weights = weights_info[1][index_cd] if weights_info is not None and weights_info[1] is not None else weights
             for date_cd in self.index_timeseries:
                 relation_up_right = np.repeat(0, self.macro_cnt)
                 relation_down_right = np.repeat(0, self.macro_cnt)
@@ -397,7 +401,7 @@ class FinancialCycle(object):
         self.relation_profit_dfs[macro_index_key] = pd.DataFrame(columns={key}, index=self.index_list)
 
         for index_cd in self.index_list:
-            weights = weights_info[1][index_cd] if weights_info is not None else weights
+            weights = weights_info[1][index_cd] if weights_info is not None and weights_info[1] is not None else weights
             profit = 0
             for date_cd in self.index_timeseries:
                 relation_up_right = np.repeat(0, self.macro_cnt)
