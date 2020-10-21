@@ -64,6 +64,7 @@ def maximize_hit_ratio(up_right_case=None, down_right_case=None, up_wrong_case=N
         constraints = {'type': 'eq', 'fun': sum_weight}
         options = {'ftol': 1e-20, 'maxiter': 5000, 'disp': False}
 
+        print(up_right_sum+down_right_sum+up_wrong_sum+down_wrong_sum)
         result = minimize(fun=profit,
                           x0=x0,
                           args=(up_right_sum+down_right_sum+up_wrong_sum+down_wrong_sum),
@@ -124,6 +125,8 @@ class FinancialCycle(object):
         # 3. weighted series는 해당 기간의 상승 ,하락 확률을 분리하여 나타내기 때문에 두가지 정보가 합쳐지면 해당 기간의 시그널이 점수로 계산
         # (up_right & down_wrong, down_right & up_wrong)
         self.relation_series = {}
+        self.relation_up_series = {}
+        self.relation_down_series = {}
         self.relation_up_right_series = {}
         self.relation_down_right_series = {}
         self.relation_up_wrong_series = {}
@@ -278,11 +281,11 @@ class FinancialCycle(object):
                     elif self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[0]:
                         down_wrong_cnt += r_cd[1]
 
-                self.relation_dfs[key][macro_cd][index_cd] = (up_right_cnt + down_right_cnt + up_wrong_cnt + down_wrong_cnt) / self.index_len
-                self.relation_right_dfs[key][macro_cd][index_cd] = (up_right_cnt + down_right_cnt) / self.index_len
-                self.relation_wrong_dfs[key][macro_cd][index_cd] = (up_wrong_cnt + down_wrong_cnt) / self.index_len
-                self.relation_up_dfs[key][macro_cd][index_cd] = (up_right_cnt + up_wrong_cnt) / self.index_len
-                self.relation_down_dfs[key][macro_cd][index_cd] = (down_right_cnt + down_wrong_cnt) / self.index_len
+                self.relation_dfs[key][macro_cd][index_cd] = (up_right_cnt+down_right_cnt+up_wrong_cnt+down_wrong_cnt) / self.index_len
+                self.relation_right_dfs[key][macro_cd][index_cd] = (up_right_cnt+down_right_cnt) / self.index_len
+                self.relation_wrong_dfs[key][macro_cd][index_cd] = (up_wrong_cnt+down_wrong_cnt) / self.index_len
+                self.relation_up_dfs[key][macro_cd][index_cd] = (up_right_cnt+up_wrong_cnt) / self.index_len
+                self.relation_down_dfs[key][macro_cd][index_cd] = (down_right_cnt+down_wrong_cnt) / self.index_len
                 self.relation_up_right_dfs[key][macro_cd][index_cd] = up_right_cnt / self.index_len
                 self.relation_down_right_dfs[key][macro_cd][index_cd] = down_right_cnt / self.index_len
                 self.relation_up_wrong_dfs[key][macro_cd][index_cd] = up_wrong_cnt / self.index_len
@@ -293,6 +296,8 @@ class FinancialCycle(object):
         key = macro_type+'_'+index_type
 
         self.relation_series[key] = {}
+        self.relation_up_series[key] = {}
+        self.relation_down_series[key] = {}
         self.relation_up_right_series[key] = {}
         self.relation_down_right_series[key] = {}
         self.relation_up_wrong_series[key] = {}
@@ -300,6 +305,8 @@ class FinancialCycle(object):
 
         for macro_cd in self.macro_list:
             self.relation_series[key][macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+            self.relation_up_series[key][macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+            self.relation_down_series[key][macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
             self.relation_up_right_series[key][macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
             self.relation_down_right_series[key][macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
             self.relation_up_wrong_series[key][macro_cd] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
@@ -311,15 +318,19 @@ class FinancialCycle(object):
                     # 매크로 상승, 지수 상승
                     if self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[0] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[0]:
                         self.relation_up_right_series[key][macro_cd][index_cd][date_cd] = r_cd[0]
+                        self.relation_up_series[key][macro_cd] = r_cd[0]
                     # 매크로 하락, 지수 하락
                     elif self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[1]:
                         self.relation_down_right_series[key][macro_cd][index_cd][date_cd] = r_cd[0]
+                        self.relation_down_series[key][macro_cd] = r_cd[0]
                     # 매크로 상승, 지수 하락
                     elif self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[0] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[1]:
                         self.relation_up_wrong_series[key][macro_cd][index_cd][date_cd] = r_cd[1]
+                        self.relation_up_series[key][macro_cd] = r_cd[1]
                     # 매크로 하락, 지수 상승
                     elif self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[0]:
                         self.relation_down_wrong_series[key][macro_cd][index_cd][date_cd] = r_cd[1]
+                        self.relation_down_series[key][macro_cd] = r_cd[1]
 
                     # 동일하지 않은 경우 패널티(-1) 발생
                     self.relation_series[key][macro_cd][index_cd][date_cd] = self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd]*self.pivoted_index_property_dfs[index_type][index_cd][date_cd]
@@ -327,7 +338,7 @@ class FinancialCycle(object):
     # 현재는 평균만 계산할 수 있음
     def calc_matching_properties_weighted_statistic_ratio(self, type='mean', weights_info=None, r_cd=(1,-1), macro_type='momentum', index_type='direction'):
         macro_index_key = macro_type+'_'+index_type
-        key = type if weights_info is None else type + '_' + weights_info[0]
+        key = type if weights_info is None else type+'_'+weights_info[0]
         weights = np.repeat(1 / self.macro_cnt, self.macro_cnt)
 
         self.relation_dfs[macro_index_key][key] = pd.Series()
@@ -384,11 +395,11 @@ class FinancialCycle(object):
                     elif  max_index == 3:
                         down_wrong_cnt += r_cd[1]
 
-            self.relation_dfs[macro_index_key][key][index_cd] = (up_right_cnt + down_right_cnt + up_wrong_cnt + down_wrong_cnt) / self.index_len
-            self.relation_right_dfs[macro_index_key][key][index_cd] = (up_right_cnt + down_right_cnt) / self.index_len
-            self.relation_wrong_dfs[macro_index_key][key][index_cd] = (up_wrong_cnt + down_wrong_cnt) / self.index_len
-            self.relation_up_dfs[macro_index_key][key][index_cd] = (up_right_cnt + up_wrong_cnt) / self.index_len
-            self.relation_down_dfs[macro_index_key][key][index_cd] = (down_right_cnt + down_wrong_cnt) / self.index_len
+            self.relation_dfs[macro_index_key][key][index_cd] = (up_right_cnt+down_right_cnt+up_wrong_cnt+down_wrong_cnt) / self.index_len
+            self.relation_right_dfs[macro_index_key][key][index_cd] = (up_right_cnt+down_right_cnt) / self.index_len
+            self.relation_wrong_dfs[macro_index_key][key][index_cd] = (up_wrong_cnt+down_wrong_cnt) / self.index_len
+            self.relation_up_dfs[macro_index_key][key][index_cd] = (up_right_cnt+up_wrong_cnt) / self.index_len
+            self.relation_down_dfs[macro_index_key][key][index_cd] = (down_right_cnt+down_wrong_cnt) / self.index_len
             self.relation_up_right_dfs[macro_index_key][key][index_cd] = up_right_cnt / self.index_len
             self.relation_down_right_dfs[macro_index_key][key][index_cd] = down_right_cnt / self.index_len
             self.relation_up_wrong_dfs[macro_index_key][key][index_cd] = up_wrong_cnt / self.index_len
@@ -401,6 +412,8 @@ class FinancialCycle(object):
         weights = np.repeat(1/self.macro_cnt, self.macro_cnt)
 
         self.relation_series[macro_index_key][key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+        self.relation_up_series[macro_index_key][key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
+        self.relation_down_series[macro_index_key][key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
         self.relation_up_right_series[macro_index_key][key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
         self.relation_down_right_series[macro_index_key][key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
         self.relation_up_wrong_series[macro_index_key][key] = pd.DataFrame(columns=self.index_list, index=self.index_timeseries)
@@ -425,6 +438,8 @@ class FinancialCycle(object):
 
                 if type == 'mean':
                     self.relation_series[macro_index_key][key][index_cd][date_cd] = round(sum(relation_up_right*weights)+sum(relation_down_right*weights)+sum(relation_up_wrong*weights)+sum(relation_down_wrong*weights), 2)
+                    self.relation_up_series[macro_index_key][key][index_cd][date_cd] = round(sum(relation_up_right*weights)+sum(relation_down_wrong*weights), 2)
+                    self.relation_down_series[macro_index_key][key][index_cd][date_cd] = round(sum(relation_down_right*weights)+sum(relation_up_wrong*weights), 2)
                     self.relation_up_right_series[macro_index_key][key][index_cd][date_cd] = round(sum(relation_up_right*weights), 2) if abs(sum(relation_up_right*weights)) > threshold else 0
                     self.relation_down_right_series[macro_index_key][key][index_cd][date_cd] = round(sum(relation_down_right*weights), 2) if abs(sum(relation_down_right*weights)) > threshold else 0
                     self.relation_up_wrong_series[macro_index_key][key][index_cd][date_cd] = round(sum(relation_up_wrong*weights), 2) if abs(sum(relation_up_wrong*weights)) > threshold else 0
@@ -433,7 +448,7 @@ class FinancialCycle(object):
     # 현재는 평균만 계산할 수 있음
     def calc_matching_properties_weighted_statistic_profit(self, type='mean', weights_info=None, macro_type='momentum', index_type='direction'):
         macro_index_key = macro_type+'_'+index_type
-        key = type if weights_info is None else type + '_' + weights_info[0]
+        key = type if weights_info is None else type+'_'+weights_info[0]
         yield_cd='yield'
         weights = np.repeat(1 / self.macro_cnt, self.macro_cnt)
 
@@ -470,7 +485,7 @@ class FinancialCycle(object):
                     # 매크로 상승, 지수 상승
                     # 매크로 상승, 지수 하락
                     if max_index == 0 or max_index == 2:
-                        profit = profit + self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd] if math.isnan(self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd]) == False else 0
+                        profit = profit+self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd] if math.isnan(self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd]) == False else 0
                     # 매크로 하락, 지수 하락
                     # 매크로 하락, 지수 상승
                     elif max_index == 1 or max_index == 2:
@@ -574,12 +589,12 @@ if __name__ == '__main__':
         print("################## macro & index matching momentum ratio ##################")
         for idx_col, index_cd in enumerate(ele.index_list):
             if idx_col == 0:
-                txt_str = '\t' + str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",'') + '\n'
+                txt_str = '\t'+str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",'')+'\n'
             for idx_row, macro_cd in enumerate(ele.macro_list):
                 if idx_row == 0:
-                    txt_str = txt_str + index_cd + ':\t'
-                txt_str = txt_str + str(round(ele.relation_right_dfs['momentum_direction'][macro_cd][index_cd], 2)) + '\t'
-            txt_str = txt_str + '\n'
+                    txt_str = txt_str+index_cd+':\t'
+                txt_str = txt_str+str(round(ele.relation_right_dfs['momentum_direction'][macro_cd][index_cd], 2))+'\t'
+            txt_str = txt_str+'\n'
         print(txt_str)
 
     ele.set_matching_properties_series(macro_type='momentum', index_type='direction')
@@ -592,77 +607,54 @@ if __name__ == '__main__':
     if SC_LOG == True:
         print("################## macros momentum & index direction matching equal weights ratio ##################")
         for index_cd in ele.relation_right_dfs['momentum_direction'].index:
-            print(index_cd + ':\t' + str(round(ele.relation_right_dfs['momentum_direction']['mean'][index_cd], 2)))
+            print(index_cd+':\t'+str(round(ele.relation_right_dfs['momentum_direction']['mean'][index_cd], 2)))
 
         print("################## macros momentum & index direction matching equal weights profit ##################")
         for index_cd in ele.relation_profit_dfs['momentum_direction'].index:
-            print(index_cd + ':\t' + str(round(ele.relation_profit_dfs['momentum_direction']['mean'][index_cd], 2)))
+            print(index_cd+':\t'+str(round(ele.relation_profit_dfs['momentum_direction']['mean'][index_cd], 2)))
 
-    for i in (3,4):
-        if i == 0:
-            # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
-            up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
-            down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
-            up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
-            down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
-        elif i == 1:
-            up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
-            down_right_case = None
-            up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
-            down_wrong_case = None
-        elif i == 2:
-            up_right_case = None
-            down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
-            up_wrong_case = None
-            down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
-        elif i == 3:
-            up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
-            down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
-            up_wrong_case = None
-            down_wrong_case = None
-        elif i == 4:
-            up_right_case = None
-            down_right_case = None
-            up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
-            down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
+    # 지수별 최적화된 매크로 데이터들의 가중 평균 모멘텀 적용
+    # 결과 데이터들이 서로 연관되어 어떤 조합으로 최적화를 해도 동일한 결과 나옴
+    up_right_case = copy.deepcopy(ele.relation_up_right_series['momentum_direction'])
+    down_right_case = copy.deepcopy(ele.relation_down_right_series['momentum_direction'])
+    up_wrong_case = copy.deepcopy(ele.relation_up_wrong_series['momentum_direction'])
+    down_wrong_case = copy.deepcopy(ele.relation_down_wrong_series['momentum_direction'])
 
-        macro_list = copy.deepcopy(ele.macro_list)
-        index_list = copy.deepcopy(ele.index_list)
-        timeseries = copy.deepcopy(ele.index_timeseries)
+    macro_list = copy.deepcopy(ele.macro_list)
+    index_list = copy.deepcopy(ele.index_list)
+    timeseries = copy.deepcopy(ele.index_timeseries)
 
-        weights_list = maximize_hit_ratio(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
-        ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
-        ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
-        ele.calc_matching_properties_weighted_statistic_profit(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
+    weights_list = maximize_hit_ratio(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
+    ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
+    ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
+    ele.calc_matching_properties_weighted_statistic_profit(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
 
-        if SC_LOG == True:
-            print("################## macros momentum & index direction matching optimized weights ratio ##################")
-            for index_cd in ele.relation_right_dfs['momentum_direction'].index:
-                print(index_cd + ':\t' + str(round(ele.relation_right_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
+    if SC_LOG == True:
+        print("################## macros momentum & index direction matching optimized weights ratio ##################")
+        for index_cd in ele.relation_right_dfs['momentum_direction'].index:
+            print(index_cd+':\t'+str(round(ele.relation_right_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
 
-            print("################## macros momentum & index direction matching optimized weights profit ##################")
-            for index_cd in ele.relation_profit_dfs['momentum_direction'].index:
-                print(index_cd + ':\t' + str(round(ele.relation_profit_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
+        print("################## macros momentum & index direction matching optimized weights profit ##################")
+        for index_cd in ele.relation_profit_dfs['momentum_direction'].index:
+            print(index_cd+':\t'+str(round(ele.relation_profit_dfs['momentum_direction']['mean_optimized'][index_cd], 2)))
 
-            print("################## optimized weights ##################")
-            print('\t'+str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",''))
-            for weights_cd in weights_list:
-                print(weights_cd + ':\t' + str(weights_list[weights_cd]).replace(',', '\t').replace('[','').replace(']',''))
+        print("################## optimized weights ##################")
+        print('\t'+str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[','').replace(']','').replace("'",''))
+        for weights_cd in weights_list:
+            print(weights_cd+':\t'+str(weights_list[weights_cd]).replace(',', '\t').replace('[','').replace(']',''))
 
-            print("################## forecast macro's momentum ##################")
-            print(str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[', '').replace(']','').replace("'", ''))
-            txt_str = ""
-            for macro_cd in macro_list:
-                txt_str = txt_str + str(ele.macro_last_df['momentum'][macro_cd].values[0]) + '\t'
-            print(txt_str)
+        print("################## forecast macro's momentum ##################")
+        print(str(list(ele.macro_master_df['nm'])).replace(',', '\t').replace('[', '').replace(']','').replace("'", ''))
+        txt_str = ""
+        for macro_cd in macro_list:
+            txt_str = txt_str+str(ele.macro_last_df['momentum'][macro_cd].values[0])+'\t'
+        print(txt_str)
 
-            print("################## forecast index's direction ##################")
-            for weights_cd in weights_list:
-                print(weights_cd + ':\t' + str(round(sum(weights_list[weights_cd]*ele.macro_last_df['momentum'].values[0]), 2)))
+        print("################## forecast index's direction ##################")
+        for weights_cd in weights_list:
+            print(weights_cd+':\t'+str(round(sum(weights_list[weights_cd]*ele.macro_last_df['momentum'].values[0]), 2)))
 
-    ele.do_figure(weights_info=('optimized', weights_list), img_save='n')
+    ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
     ele.save_log()
 
     db.disconnect()
-
-
