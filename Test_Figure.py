@@ -80,7 +80,8 @@ class Figure(object):
 
     def draw_multi_graph_with_matching_analysis(self, data=None, analysis=None, anal_value=None, title="", figsize=(10, 10), figshape=(1,1), ylim=(0,1), img_save='n'):
 
-        color_list = ('g', 'r', 'b', 'y')
+        color_list = ('g', 'r')
+        alpha_list = [0.8, 0.3]
 
         if data is None or analysis is None:
             return False
@@ -109,10 +110,10 @@ class Figure(object):
                     #analysis_sub[row_idx][column_idx].axes.get_xaxis().set_visible(False)
 
                 data[data.columns[idx]].plot(ax=data_subs[row_idx][column_idx], color='k')
-                for color_idx, (anal, alaysis_sub) in enumerate(zip(analysis, analysis_subs)):
-                    anal[data.columns[idx]].plot(ax=alaysis_sub[row_idx][column_idx], kind='bar', position=1, width=1, color=color_list[color_idx%len(color_list)], alpha=0.3, ylim=ylim)
+                for ca_idx, (anal, alaysis_sub) in enumerate(zip(analysis, analysis_subs)):
+                    anal[data.columns[idx]].plot(ax=alaysis_sub[row_idx][column_idx], kind='bar', position=1, width=1, color=color_list[ca_idx%len(color_list)], alpha=alpha_list[int(ca_idx/len(alpha_list))], ylim=ylim)
 
-        if img_save == 'y':
+        if img_save == True:
             plt.savefig('%s_momentum_triger.png' % (title))
         else:
             plt.show()

@@ -5,6 +5,8 @@
 import os
 import platform
 import copy
+import warnings
+warnings.filterwarnings(action='ignore')
 
 import pandas as pd
 import numpy as np
@@ -64,7 +66,7 @@ def maximize_hit_ratio(up_right_case=None, down_right_case=None, up_wrong_case=N
         constraints = {'type': 'eq', 'fun': sum_weight}
         options = {'ftol': 1e-20, 'maxiter': 5000, 'disp': False}
 
-        print(up_right_sum+down_right_sum+up_wrong_sum+down_wrong_sum)
+        #print(up_right_sum+down_right_sum+up_wrong_sum+down_wrong_sum)
         result = minimize(fun=profit,
                           x0=x0,
                           args=(up_right_sum+down_right_sum+up_wrong_sum+down_wrong_sum),
@@ -136,20 +138,23 @@ class FinancialCycle(object):
 
     def get_macro_master(self):
         # 매크로 시계열 데이터 셋
-        sql = "select a.cd as cd, a.nm as nm, a.ctry as ctry, a.base as base, a.unit as unit" \
+        sql = "select a.cd as cd, a.nm as nm, a.ctry as ctry, a.base as base, a.shift as shift, a.unit as unit" \
               "  from macro_master a" \
               "     , macro_value b" \
-              " where a.base is not null" \
+              " where a.use_yn = 'y'" \
               "   and a.cd = b.cd" \
-              " group by a.cd, a.nm, a.ctry, a.base, a.unit" \
+              " group by a.cd, a.nm, a.ctry, a.base, a.shift, a.unit" \
               " having count(*) > 0"
         self.macro_master_df = self.db.select_query(sql)
-        self.macro_master_df.columns = ('cd', 'nm', 'ctry', 'base', 'unit')
+        self.macro_master_df.columns = ('cd', 'nm', 'ctry', 'base', 'shift', 'unit')
         self.macro_master_df.set_index('cd', inplace=True)
 
     def get_macro_value(self):
-        sql = "select cd, date, value" \
-              "  from macro_value"
+        sql = "select a.cd as cd, a.date as date, a.value as value" \
+              "  from macro_value a" \
+              "     , macro_master b" \
+              " where b.use_yn = 'y'" \
+              "   and a.cd = b.cd"
         self.macro_value_df = self.db.select_query(sql)
         self.macro_value_df.columns = ('cd', 'date', 'value')
         self.pivoted_macro_value_df = self.macro_value_df.pivot(index='date', columns='cd', values='value')
@@ -173,10 +178,11 @@ class FinancialCycle(object):
 
     # 매크로 데이터가 기준값 이상인 경우, r_cd로 분류
     # 매크로 데이터가 이전값 보다 경우, r_cd로 분류
-    def set_macro_property(self, type='momentum', r_cd=(1,-1), shift=1):
+    def set_macro_property(self, type='momentum', r_cd=(1,-1)):
         self.pivoted_macro_property_dfs[type] = pd.DataFrame(columns=self.macro_list, index=self.macro_timeseries)
         for macro_cd in self.macro_list:
             base_value = self.macro_master_df['base'][macro_cd]
+            shift = self.macro_master_df['shift'][macro_cd]
             unit = self.macro_master_df['unit'][macro_cd]
             for idx, date_cd in enumerate(self.macro_timeseries):
                 if idx > 0:
@@ -336,6 +342,32 @@ class FinancialCycle(object):
                     self.relation_series[key][macro_cd][index_cd][date_cd] = self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd]*self.pivoted_index_property_dfs[index_type][index_cd][date_cd]
 
     # 현재는 평균만 계산할 수 있음
+    def calc_matching_properties_profit(self, macro_type='momentum', index_type='direction', r_cd=(1,-1)):
+        key = macro_type + '_' + index_type
+        yield_cd = 'yield'
+
+        self.relation_profit_dfs[key] = pd.DataFrame(columns=self.macro_list, index=self.index_list)
+
+        for macro_cd in self.macro_list:
+            for index_cd in self.index_list:
+                profit = 0
+                for date_cd in self.index_timeseries:
+                    # 매크로 상승, 지수 상승
+                    if self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[0] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[0]:
+                        profit = profit + self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd] if math.isnan(self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd]) == False else 0
+                    # 매크로 하락, 지수 하락
+                    elif self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[1]:
+                        profit = profit - self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd] if math.isnan(self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd]) == False else 0
+                    # 매크로 상승, 지수 하락
+                    elif self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[0] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[1]:
+                        profit = profit + self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd] if math.isnan(self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd]) == False else 0
+                    # 매크로 하락, 지수 상승
+                    elif self.pivoted_macro_property_shift_dfs[macro_type][macro_cd][date_cd] == r_cd[1] and self.pivoted_index_property_dfs[index_type][index_cd][date_cd] == r_cd[0]:
+                        profit = profit - self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd] if math.isnan(self.pivoted_index_property_dfs[yield_cd][index_cd][date_cd]) == False else 0
+
+                self.relation_profit_dfs[key][macro_cd][index_cd] = profit
+
+    # 현재는 평균만 계산할 수 있음
     def calc_matching_properties_weighted_statistic_ratio(self, type='mean', weights_info=None, r_cd=(1,-1), macro_type='momentum', index_type='direction'):
         macro_index_key = macro_type+'_'+index_type
         key = type if weights_info is None else type+'_'+weights_info[0]
@@ -452,7 +484,7 @@ class FinancialCycle(object):
         yield_cd='yield'
         weights = np.repeat(1 / self.macro_cnt, self.macro_cnt)
 
-        self.relation_profit_dfs[macro_index_key] = pd.DataFrame(columns={key}, index=self.index_list)
+        self.relation_profit_dfs[macro_index_key][key] = pd.Series()
 
         for index_cd in self.index_list:
             weights = weights_info[1][index_cd] if weights_info is not None and weights_info[1] is not None else weights
@@ -518,7 +550,7 @@ class FinancialCycle(object):
                 plot_df[index_cd] = pivoted_index_value_df[index_cd]
                 panel.draw(plot_df, title=macro_ctry+'_'+macro_nm, subplots=[index_cd], figsize=(10,5))
 
-    def do_figure(self, weights_info=None, img_save='n'):
+    def do_figure(self, weights_info=None, each_factor=False, img_save=False):
         panel = Figure()
         panel_size = (20, 10)
         sub_plot_row = 3
@@ -547,13 +579,14 @@ class FinancialCycle(object):
             panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df , analysis=(self.relation_series[macro_index_key][macro_cd],), anal_value=self.relation_right_dfs[macro_index_key][macro_cd],
                                                           title=macro_ctry+'_'+macro_nm+'_single', figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row)), ylim=(-1,1), img_save=img_save)
 
-        for macro_cd in self.macro_list:
-            macro_ctry = self.macro_master_df['ctry'][macro_cd]
-            macro_nm = self.macro_master_df['nm'][macro_cd]
-            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
-                              , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd], self.relation_up_wrong_series[macro_index_key][macro_cd], self.relation_down_wrong_series[macro_index_key][macro_cd])
-                              , anal_value=self.relation_right_dfs[macro_index_key][macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt/sub_plot_row))
-                              , ylim=(-1,1), img_save=img_save)
+        if each_factor == True:
+            for macro_cd in self.macro_list:
+                macro_ctry = self.macro_master_df['ctry'][macro_cd]
+                macro_nm = self.macro_master_df['nm'][macro_cd]
+                panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
+                                  , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd], self.relation_up_wrong_series[macro_index_key][macro_cd], self.relation_down_wrong_series[macro_index_key][macro_cd])
+                                  , anal_value=self.relation_right_dfs[macro_index_key][macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt/sub_plot_row))
+                                  , ylim=(-1,1), img_save=img_save)
 
 
 if __name__ == '__main__':
@@ -584,6 +617,8 @@ if __name__ == '__main__':
     ele.calc_matching_properties_ratio(macro_type='status', index_type='direction')
     # 매크로 데이터의 모멘텀과 지수 데이터의 방향성이 동일한 경우 확인
     ele.calc_matching_properties_ratio(macro_type='momentum', index_type='direction')
+    # 단일 매크로 데이터를 이용한 지수별 price action 누적 수익률 계산
+    ele.calc_matching_properties_profit(macro_type='momentum', index_type='direction')
 
     if SC_LOG == True:
         print("################## macro & index matching momentum ratio ##################")
@@ -624,7 +659,7 @@ if __name__ == '__main__':
     index_list = copy.deepcopy(ele.index_list)
     timeseries = copy.deepcopy(ele.index_timeseries)
 
-    weights_list = maximize_hit_ratio(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.1, ub=0.6)
+    weights_list = maximize_hit_ratio(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.0, ub=0.5)
     ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_profit(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
@@ -654,7 +689,7 @@ if __name__ == '__main__':
         for weights_cd in weights_list:
             print(weights_cd+':\t'+str(round(sum(weights_list[weights_cd]*ele.macro_last_df['momentum'].values[0]), 2)))
 
-    ele.do_figure(weights_info=('optimized', weights_list), img_save='y')
+    ele.do_figure(weights_info=('optimized', weights_list), each_factor=False, img_save=True)
     ele.save_log()
 
     db.disconnect()
