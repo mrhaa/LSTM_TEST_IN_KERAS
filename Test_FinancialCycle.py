@@ -117,10 +117,12 @@ class FinancialCycle(object):
         self.relation_up_wrong_dfs = {}
         self.relation_down_wrong_dfs = {}
 
-        # 매크로 데이터의 속성과 지수 데이터의 움직임 관계를 시계열로 관리
-        # 해당 row에 있는 값은 해당 달의 값을 의미한다. (ex. 2/28: 2월에 맞았는지를 의미, 2월의 지수 움직임과 1월의 매크로 통계값)
-        # 그래프에 지수와 같이 보여주기 위해서는 position이 1이 되어야 함
-        # 매크로 데이터를 기준으로 함
+        # 1. 매크로 데이터의 속성과 지수 데이터의 움직임 관계를 시계열로 관리하며 해당 row에 있는 값은 해당 달의 값을 의미
+        # (ex. 2/28: 2월에 맞았는지를 의미, 2월의 지수 움직임과 1월의 매크로 통계값)
+        # 2. 4가지 경우를 그래프에 지수와 같이 보여주기 위해 (-1, 1)구간을 사용하여 표시
+        # (up & down은 매크로 데이터를 기준으로 하며, right은 양수 wrong은 음수로 표시)
+        # 3. weighted series는 해당 기간의 상승 ,하락 확률을 분리하여 나타내기 때문에 두가지 정보가 합쳐지면 해당 기간의 시그널이 점수로 계산
+        # (up_right & down_wrong, down_right & up_wrong)
         self.relation_series = {}
         self.relation_up_right_series = {}
         self.relation_down_right_series = {}
