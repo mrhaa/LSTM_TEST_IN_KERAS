@@ -562,31 +562,35 @@ class FinancialCycle(object):
 
 
         panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
-                          , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd], self.relation_up_wrong_series[macro_index_key][macro_cd], self.relation_down_wrong_series[macro_index_key][macro_cd])
+                          , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd]
+                                      , -1*self.relation_up_wrong_series[macro_index_key][macro_cd], -1*self.relation_down_wrong_series[macro_index_key][macro_cd])
                           , anal_value=self.relation_right_dfs[macro_index_key][macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
-                          , ylim=(-1,1), img_save=img_save)
+                          , ylim=(0,1), img_save=img_save)
 
-        panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.relation_series[macro_index_key][macro_cd],), anal_value=self.relation_right_dfs[macro_index_key][macro_cd]
-                                                      , title=macro_ctry+'_'+macro_nm+'_single', figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row)), ylim=(-1,1), img_save=img_save)
+        #panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df, analysis=(self.relation_series[macro_index_key][macro_cd],), anal_value=self.relation_right_dfs[macro_index_key][macro_cd]
+        #                                              , title=macro_ctry+'_'+macro_nm+'_single', figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row)), ylim=(-1,1), img_save=img_save)
 
         if weights_info is not None:
             macro_nm = 'mean'+'_'+weights_info[0]
             macro_cd = macro_nm
             panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
-                          , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd], self.relation_up_wrong_series[macro_index_key][macro_cd], self.relation_down_wrong_series[macro_index_key][macro_cd])
+                          , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd]
+                                      , -1*self.relation_up_wrong_series[macro_index_key][macro_cd], -1*self.relation_down_wrong_series[macro_index_key][macro_cd])
                           , anal_value=self.relation_right_dfs[macro_index_key][macro_cd], title=macro_ctry+'_'+macro_nm,figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row))
-                          , ylim=(-1,1), img_save=img_save)
-            panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df , analysis=(self.relation_series[macro_index_key][macro_cd],), anal_value=self.relation_right_dfs[macro_index_key][macro_cd],
-                                                          title=macro_ctry+'_'+macro_nm+'_single', figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row)), ylim=(-1,1), img_save=img_save)
+                          , ylim=(0,1), img_save=img_save)
+
+            #panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df , analysis=(self.relation_series[macro_index_key][macro_cd],), anal_value=self.relation_right_dfs[macro_index_key][macro_cd],
+            #                                              title=macro_ctry+'_'+macro_nm+'_single', figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt / sub_plot_row)), ylim=(-1,1), img_save=img_save)
 
         if each_factor == True:
             for macro_cd in self.macro_list:
                 macro_ctry = self.macro_master_df['ctry'][macro_cd]
                 macro_nm = self.macro_master_df['nm'][macro_cd]
                 panel.draw_multi_graph_with_matching_analysis(data=self.pivoted_index_value_df
-                                  , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd], self.relation_up_wrong_series[macro_index_key][macro_cd], self.relation_down_wrong_series[macro_index_key][macro_cd])
+                                  , analysis=(self.relation_up_right_series[macro_index_key][macro_cd], self.relation_down_right_series[macro_index_key][macro_cd]
+                                              , -1*self.relation_up_wrong_series[macro_index_key][macro_cd], -1*self.relation_down_wrong_series[macro_index_key][macro_cd])
                                   , anal_value=self.relation_right_dfs[macro_index_key][macro_cd], title=macro_ctry+'_'+macro_nm, figsize=panel_size, figshape=(sub_plot_row, math.ceil(self.index_cnt/sub_plot_row))
-                                  , ylim=(-1,1), img_save=img_save)
+                                  , ylim=(0,1), img_save=img_save)
 
 
 if __name__ == '__main__':
@@ -635,7 +639,7 @@ if __name__ == '__main__':
     ele.set_matching_properties_series(macro_type='momentum', index_type='direction')
 
     # 매크로 데이터들의 평균 모멘텀 적용
-    ele.set_matching_properties_weighted_statistic_series(type='mean', threshold=0.0, macro_type='momentum', index_type='direction')
+    ele.set_matching_properties_weighted_statistic_series(type='mean', threshold=0.5, macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_ratio(type='mean', macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_profit(type='mean', macro_type='momentum', index_type='direction')
 
@@ -660,7 +664,7 @@ if __name__ == '__main__':
     timeseries = copy.deepcopy(ele.index_timeseries)
 
     weights_list = maximize_hit_ratio(up_right_case, down_right_case, up_wrong_case, down_wrong_case, macro_list, index_list, timeseries, lb=0.0, ub=0.5)
-    ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.0, macro_type='momentum', index_type='direction')
+    ele.set_matching_properties_weighted_statistic_series(type='mean', weights_info=('optimized', weights_list), threshold=0.5, macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_ratio(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
     ele.calc_matching_properties_weighted_statistic_profit(type='mean', weights_info=('optimized', weights_list), macro_type='momentum', index_type='direction')
 
@@ -689,7 +693,7 @@ if __name__ == '__main__':
         for weights_cd in weights_list:
             print(weights_cd+':\t'+str(round(sum(weights_list[weights_cd]*ele.macro_last_df['momentum'].values[0]), 2)))
 
-    ele.do_figure(weights_info=('optimized', weights_list), each_factor=False, img_save=True)
+    ele.do_figure(weights_info=('optimized', weights_list), each_factor=False, img_save=False)
     ele.save_log()
 
     db.disconnect()
